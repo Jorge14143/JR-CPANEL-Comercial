@@ -2,10 +2,10 @@
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JR Server Panel</title><link rel="stylesheet" href="/css/app.css"></head>
 <body>
-<aside class="side"><div class="brand"><span>⚡</span><div><b>JR SERVER</b><small>PANEL</small></div></div>
-<nav><a class="on">▦ Dashboard</a><a>◉ PM2</a><a>◆ Nginx</a><a>▰ Base de datos</a><a>↻ Backups</a><a>☁ Cloudflare / DDNS</a><a>⬡ Seguridad</a><a>◇ SSL</a><a>⬆ Actualizaciones</a><a>⑂ Git / Deploy</a></nav>
+<button class="mobile-menu" id="mobileMenu" aria-label="Abrir menú">☰</button><div class="mobile-overlay" id="mobileOverlay"></div><aside class="side" id="sidebar"><div class="brand"><span>⚡</span><div><b>JR SERVER</b><small>PANEL</small></div></div>
+<nav><a class="on"><span>▦</span> Dashboard</a><a><span>◉</span> PM2</a><a><span>◆</span> Nginx</a><a><span>▰</span> Base de datos</a><a><span>↻</span> Backups</a><a><span>☁</span> Cloudflare / DDNS</a><a><span>⬡</span> Seguridad</a><a><span>◇</span> SSL</a><a><span>⬆</span> Actualizaciones</a><a><span>⑂</span> Git / Deploy</a></nav>
 <div class="server-ok"><i></i><div><b>Servidor Online</b><small id="host">cargando...</small></div></div><div class="version">JR Server Panel · v0.1.0</div></aside>
-<main><header><div><p>PANEL DE CONTROL</p><h1>Bienvenido, <span>Jorge</span></h1></div><div class="live"><i></i> EN VIVO <b id="clock">--:--</b></div></header>
+<main><header><div><p>PANEL DE CONTROL</p><h1>Bienvenido, <span>Jorge</span></h1></div><div class="header-actions"><div class="health-pill"><span id="healthText">COMPROBANDO</span></div><div class="live"><i></i> EN VIVO <b id="clock">--:--</b></div></div></header>
 <section class="metrics">
 <div class="metric"><div class="metric-head"><small>CPU / CARGA</small><i>⌁</i></div><strong id="cpu">--</strong><span id="cores">-- núcleos</span><div class="bar"><i id="cpuBar"></i></div></div>
 <div class="metric"><div class="metric-head"><small>MEMORIA RAM</small><i>▦</i></div><strong id="ram">--%</strong><span id="ramtxt">--</span><div class="bar"><i id="ramBar"></i></div></div>
@@ -26,5 +26,5 @@
 <section class="lower"><div class="panel graph"><div class="pt"><h3>Recursos en tiempo real</h3><span>Últimos 60 segundos</span></div><canvas id="chart"></canvas><div class="legend"><span>● CPU Load</span><span>● RAM</span></div></div>
 <div class="panel"><div class="pt"><h3>Estado de servicios</h3><span>AHORA</span></div><div id="services" class="service-list"></div></div>
 <div class="panel"><div class="pt"><h3>Procesos PM2</h3><span>EN VIVO</span></div><div id="processes" class="service-list"></div></div></section>
-<footer>JR SERVER PANEL <span>•</span> monitoreo de solo lectura · actualización cada 5 segundos</footer>
+<footer><b>JR SERVER PANEL</b><span>•</span> monitoreo de solo lectura <span>•</span> actualización cada 5 segundos <span>•</span> <i id="lastUpdate">esperando datos</i></footer>
 </main><script src="/js/app.js"></script></body></html>
