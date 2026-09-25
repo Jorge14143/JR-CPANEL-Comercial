@@ -7,12 +7,12 @@
 <div class="server-ok"><i></i><div><b>Servidor Online</b><small id="host">cargando...</small></div></div><div class="version">JR Server Panel · v0.1.0</div></aside>
 <main><header><div><p>PANEL DE CONTROL</p><h1>Bienvenido, <span>Jorge</span></h1></div><div class="live"><i></i> EN VIVO <b id="clock">--:--</b></div></header>
 <section class="metrics">
-<div class="metric"><small>CPU / CARGA</small><strong id="cpu">--</strong><span id="cores">-- núcleos</span></div>
-<div class="metric"><small>MEMORIA RAM</small><strong id="ram">--%</strong><span id="ramtxt">--</span></div>
-<div class="metric"><small>DISCO</small><strong id="disk">--%</strong><span id="disktxt">--</span></div>
-<div class="metric"><small>UPTIME</small><strong id="uptime">--</strong><span>sin interrupciones</span></div>
-<div class="metric"><small>SERVICIOS</small><strong id="svc">--</strong><span>servicios base</span></div>
-<div class="metric"><small>PM2</small><strong id="pm2n">--</strong><span>procesos online</span></div>
+<div class="metric"><div class="metric-head"><small>CPU / CARGA</small><i>⌁</i></div><strong id="cpu">--</strong><span id="cores">-- núcleos</span><div class="bar"><i id="cpuBar"></i></div></div>
+<div class="metric"><div class="metric-head"><small>MEMORIA RAM</small><i>▦</i></div><strong id="ram">--%</strong><span id="ramtxt">--</span><div class="bar"><i id="ramBar"></i></div></div>
+<div class="metric"><div class="metric-head"><small>DISCO</small><i>◫</i></div><strong id="disk">--%</strong><span id="disktxt">--</span><div class="bar"><i id="diskBar"></i></div></div>
+<div class="metric"><div class="metric-head"><small>UPTIME</small><i>◷</i></div><strong id="uptime">--</strong><span>sin interrupciones</span><div class="status-chip ok">ESTABLE</div></div>
+<div class="metric"><div class="metric-head"><small>SERVICIOS</small><i>◆</i></div><strong id="svc">--</strong><span>servicios base</span><div class="status-chip ok">MONITOREADOS</div></div>
+<div class="metric"><div class="metric-head"><small>PM2</small><i>◉</i></div><strong id="pm2n">--</strong><span>procesos online</span><div class="status-chip ok">ONLINE</div></div>
 </section>
 <h2>Servicios del servidor <em>MONITOREO EN TIEMPO REAL</em></h2>
 <section class="modules">
