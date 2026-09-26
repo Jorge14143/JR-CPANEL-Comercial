@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in
+  test)
+    exec /usr/sbin/nginx -t
+    ;;
+  reload)
+    /usr/sbin/nginx -t
+    exec /usr/bin/systemctl reload nginx
+    ;;
+  *)
+    echo "Accion no permitida" >&2
+    exit 64
+    ;;
+esac
