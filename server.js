@@ -88,7 +88,7 @@ const terminalWss=new WebSocketServer({noServer:true});
 function terminalSessionFromCookie(req){return new Promise(resolve=>{app.request=req;app.response={};const res={getHeader(){},setHeader(){},end(){}};app._router?.handle?.(req,res,()=>resolve(req.session));setTimeout(()=>resolve(req.session),100)})}
 httpServer.on("upgrade",(req,socket,head)=>{
   if(req.url!=="/ws/terminal"){socket.destroy();return}
-  const origin=req.headers.origin||"",expected="http"+(req.socket.encrypted?"s":"")+"://"+req.headers.host;
+  const origin=req.headers.origin||"",forwardedProto=String(req.headers["x-forwarded-proto"]||"").split(",")[0].trim().toLowerCase(),proto=forwardedProto==="https"?"https":forwardedProto==="http"?"http":(req.socket.encrypted?"https":"http"),expected=proto+"://"+req.headers.host;
   if(origin&&origin!==expected){socket.destroy();return}
   const fakeRes={getHeader(){},setHeader(){},writeHead(){},end(){}};
   app(req,fakeRes,()=>{
