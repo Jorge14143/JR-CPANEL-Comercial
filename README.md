@@ -59,3 +59,12 @@ Abrir `http://127.0.0.1:3100`.
 - Vista de conexiones/procesos actuales.
 - Helper privilegiado con consultas SQL fijas y estrictamente de solo lectura.
 - Sin editor SQL, DROP/DELETE/UPDATE, restauraciones ni credenciales expuestas al navegador.
+
+
+## V0.7.0 — Fase 7 Backups
+- Inventario de respaldos locales bajo ~/backups-jr, con fecha, tipo y tamaño.
+- Resumen del último backup, cantidad de archivos y espacio utilizado.
+- Verificación del script fijo ~/backup-jr.sh.
+- Creación manual de backup con confirmación, CSRF y auditoría.
+- Helper privilegiado de lista cerrada; no acepta rutas ni comandos enviados por el navegador.
+- Sin restauración, borrado ni sobrescritura de respaldos desde la web.
