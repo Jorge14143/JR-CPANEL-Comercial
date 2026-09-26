@@ -19,6 +19,8 @@
     "otplib": "^12.0.1",
     "qrcode-terminal": "^0.12.0",
     "node-pty": "^1.0.0",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "@xterm/xterm": "^6.0.0",
+    "@xterm/addon-fit": "^0.11.0"
   }
 }
