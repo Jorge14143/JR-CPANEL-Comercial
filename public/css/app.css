@@ -35,3 +35,29 @@ html{scrollbar-color:#243a45 #071219}::selection{background:rgba(255,210,28,.22)
 /* Phase 7 Backups */
 .backup-panel{background:linear-gradient(145deg,#0c1a22,#08151c);border:1px solid var(--line2);border-radius:12px;padding:20px;box-shadow:var(--shadow);min-height:calc(100vh - 150px)}.backup-panel[hidden]{display:none}.backup-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.backup-summary article,.backup-box{border:1px solid var(--line);background:#09171e;border-radius:9px;padding:14px}.backup-summary small{display:block;color:#617984;font-size:7px;letter-spacing:1px}.backup-summary strong{display:block;font-size:13px;margin:8px 0 4px}.backup-summary strong.good{color:var(--green)}.backup-summary strong.bad{color:var(--red)}.backup-summary span{font-size:8px;color:#617984}.backup-grid{display:grid;grid-template-columns:1.4fr .8fr;gap:12px}.backup-tablewrap{overflow:auto;max-height:440px;margin-top:12px}.backup-box table{width:100%;border-collapse:collapse;font-size:8px}.backup-box th{text-align:left;color:#617984;font-size:7px;letter-spacing:.6px;padding:8px;border-bottom:1px solid #29404b;position:sticky;top:0;background:#09171e}.backup-box td{padding:9px 8px;border-bottom:1px solid #142832;color:#9aadb5;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.backup-copy{font-size:9px;color:#728891;line-height:1.7;margin:18px 0}.backup-run{border:1px solid #5d5314;background:rgba(255,210,28,.04);color:var(--yellow);border-radius:7px;padding:11px 13px;font-size:8px;cursor:pointer}.backup-run:disabled{opacity:.5;cursor:wait}.backup-box pre{background:#050d12;border:1px solid #13262f;border-radius:7px;padding:11px;color:#91a6af;font:10px/1.55 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;margin-top:14px}.backup-notice{margin-top:12px;border:1px solid rgba(40,223,134,.16);background:rgba(40,223,134,.035);border-radius:8px;padding:11px;color:#6e9282;font-size:7px;letter-spacing:.8px}@media(max-width:950px){.backup-summary{grid-template-columns:1fr 1fr}.backup-grid{grid-template-columns:1fr}}@media(max-width:560px){.backup-summary{grid-template-columns:1fr}}
 #dashboardView[hidden],#pm2Panel[hidden],#nginxPanel[hidden],#mysqlPanel[hidden],#backupPanel[hidden]{display:none!important}
+/* Cloudflare / DDNS */
+.ddns-panel{background:linear-gradient(145deg,#0c1a22,#08151c);border:1px solid var(--line2);border-radius:12px;padding:20px;box-shadow:var(--shadow);min-height:calc(100vh - 150px)}
+.ddns-panel[hidden]{display:none}
+.ddns-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+.ddns-summary article,.ddns-box,.ddns-logbox{border:1px solid var(--line);background:#09171e;border-radius:9px;padding:14px}
+.ddns-summary small{display:block;color:#617984;font-size:7px;letter-spacing:1px}
+.ddns-summary strong{display:block;font-size:13px;margin:8px 0 4px;font-variant-numeric:tabular-nums}
+.ddns-summary strong.good{color:var(--green)}
+.ddns-summary strong.bad{color:var(--red)}
+.ddns-summary span{font-size:8px;color:#617984}
+.ddns-grid{display:grid;grid-template-columns:1.25fr .85fr;gap:12px}
+.ddns-records{display:grid;gap:8px;margin-top:12px}
+.ddns-records>div{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid #162b35;background:#08151c;border-radius:7px}
+.ddns-records b{font-size:9px;color:#a9bbc2;overflow-wrap:anywhere}
+.ddns-records span{margin-left:auto;color:var(--green);font-size:7px;letter-spacing:.7px}
+.ddns-safe{margin-top:14px;border:1px solid rgba(40,223,134,.16);background:rgba(40,223,134,.035);border-radius:8px;padding:11px;color:#6e9282;font-size:7px;letter-spacing:.7px;line-height:1.6}
+.ddns-copy{font-size:9px;color:#728891;line-height:1.7;margin:18px 0}
+.ddns-run{border:1px solid #5d5314;background:rgba(255,210,28,.04);color:var(--yellow);border-radius:7px;padding:11px 13px;font-size:8px;cursor:pointer}
+.ddns-run:hover{border-color:#8a791c;color:#ffe46a}
+.ddns-run:disabled{opacity:.5;cursor:wait}
+.ddns-box pre,.ddns-logbox pre{background:#050d12;border:1px solid #13262f;border-radius:7px;padding:11px;color:#91a6af;font:10px/1.55 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto}
+.ddns-box pre{max-height:260px;margin-top:14px}
+.ddns-logbox{margin-top:12px}
+.ddns-logbox pre{max-height:300px;margin:12px 0 0}
+@media(max-width:950px){.ddns-summary{grid-template-columns:1fr 1fr}.ddns-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.ddns-summary{grid-template-columns:1fr}.ddns-records>div{align-items:flex-start;flex-direction:column}.ddns-records span{margin-left:0}}
