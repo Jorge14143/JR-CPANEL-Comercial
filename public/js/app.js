@@ -73,13 +73,14 @@ async function loadSystemSecurity(){
 }
 async function reloadFail2ban(){
   if(!confirm("¿Recargar la configuración de Fail2Ban?"))return;
-  const b=$("secFail2banReload");b.disabled=true;
+  const b=$("secFail2banReload"),msg=$("secFail2banResult");b.disabled=true;msg.hidden=false;msg.className="system-security-result working";msg.textContent="Recargando Fail2Ban...";
   try{
     const r=await fetch("/api/security/fail2ban/reload",{method:"POST",headers:{"x-csrf-token":csrfToken}});
     const d=await r.json();
     if(!r.ok)throw Error(d.output||d.error);
+    msg.className="system-security-result success";msg.textContent="✓ Fail2Ban recargado correctamente";
     await loadSystemSecurity();
-  }catch{alert("No se pudo recargar Fail2Ban.");}
+  }catch{msg.className="system-security-result error";msg.textContent="✕ No se pudo recargar Fail2Ban.";}
   finally{b.disabled=false}
 }
 $("systemSecurityNav")?.addEventListener("click",()=>{showView("security");loadSystemSecurity()});
