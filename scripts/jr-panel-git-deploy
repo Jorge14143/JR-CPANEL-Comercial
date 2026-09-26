@@ -37,7 +37,7 @@ status() {
 case "${1:-}" in
   status) status ;;
   log) gitj log -8 --pretty=format:'%h|%cd|%s' --date=iso-strict ;;
-  diff) gitj status --short; echo "---"; gitj diff --stat; echo "---"; gitj diff --no-ext-diff --unified=2 | head -400 ;;
+  diff) if [[ -z "$(gitj status --short)" ]]; then echo "✓ Repositorio limpio · Sin cambios locales"; else gitj status --short; echo "---"; gitj diff --stat; echo "---"; gitj diff --no-ext-diff --unified=2 | head -400; fi ;;
   deploy)
     gitj fetch --quiet origin "$branch"
     [[ -z "$(gitj status --porcelain)" ]] || { echo "Deploy bloqueado: hay cambios locales." >&2; exit 20; }
