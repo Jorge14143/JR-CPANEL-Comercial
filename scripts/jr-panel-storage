@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${1:-}" != "lvm-free" || "${2:-}" != "" ]]; then
+  echo "Uso: jr-panel-storage lvm-free" >&2
+  exit 64
+fi
+
+/usr/sbin/vgs --noheadings --units b --nosuffix -o vg_free ubuntu-vg | /usr/bin/tr -d '[:space:]'
