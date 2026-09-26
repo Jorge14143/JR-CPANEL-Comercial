@@ -50,8 +50,16 @@ case "${1:-}" in
       gitj merge --ff-only "origin/$branch"
     fi
     if [[ -f package.json ]]; then run_user npm install --omit=dev --no-audit --no-fund; fi
-    pm2j restart "$pm2"
-    echo "Deploy completado: $(gitj rev-parse --short HEAD)"
+    if [[ "$project" == "panel" ]]; then
+      # El panel no puede reiniciarse sin cortar la petición que ordenó el deploy.
+      # Programamos el restart fuera de esta ejecución y respondemos primero al navegador.
+      run_user bash -c 'sleep 2; env NO_COLOR=1 PM2_COLOR=false PM2_HOME=/home/jorge/.pm2 pm2 restart jr-server-panel >/tmp/jr-server-panel-self-restart.log 2>&1' >/dev/null 2>&1 &
+      echo "Deploy completado: $(gitj rev-parse --short HEAD)"
+      echo "Reinicio del JR Server Panel programado en 2 segundos."
+    else
+      pm2j restart "$pm2"
+      echo "Deploy completado: $(gitj rev-parse --short HEAD)"
+    fi
     ;;
   *) echo "Acción no permitida" >&2; exit 64 ;;
 esac
