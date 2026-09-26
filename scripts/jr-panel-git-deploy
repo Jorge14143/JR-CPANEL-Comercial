@@ -11,16 +11,22 @@ esac
 
 cd "$dir"
 
+# El helper puede ser autorizado por sudo, pero Git/PM2 deben ejecutarse como Jorge.
+# Así se conserva su clave SSH de GitHub y su PM2_HOME sin dar comandos arbitrarios al panel.
+run_user() { sudo -u jorge -H env HOME=/home/jorge PM2_HOME=/home/jorge/.pm2 "$@"; }
+gitj() { run_user git "$@"; }
+pm2j() { run_user pm2 "$@"; }
+
 status() {
-  git fetch --quiet origin "$branch"
+  gitj fetch --quiet origin "$branch"
   local head remote ahead behind dirty
-  head="$(git rev-parse HEAD)"
-  remote="$(git rev-parse "origin/$branch")"
-  read -r ahead behind < <(git rev-list --left-right --count "HEAD...origin/$branch")
-  dirty="$(git status --porcelain)"
+  head="$(gitj rev-parse HEAD)"
+  remote="$(gitj rev-parse "origin/$branch")"
+  read -r ahead behind < <(gitj rev-list --left-right --count "HEAD...origin/$branch")
+  dirty="$(gitj status --porcelain)"
   printf 'project=%s\npath=%s\nbranch=%s\npm2=%s\nhead=%s\nremote=%s\nahead=%s\nbehind=%s\nclean=%s\n' \
     "$project" "$dir" "$branch" "$pm2" "$head" "$remote" "$ahead" "$behind" "$([[ -z "$dirty" ]] && echo yes || echo no)"
-  echo "last_commit=$(git log -1 --pretty=format:'%h | %s | %cd' --date=iso-strict)"
+  echo "last_commit=$(gitj log -1 --pretty=format:'%h | %s | %cd' --date=iso-strict)"
   if [[ -n "$dirty" ]]; then
     echo "changes_begin"
     printf '%s\n' "$dirty"
@@ -30,22 +36,22 @@ status() {
 
 case "${1:-}" in
   status) status ;;
-  log) git log -8 --pretty=format:'%h|%cd|%s' --date=iso-strict ;;
-  diff) git status --short; echo "---"; git diff --stat; echo "---"; git diff --no-ext-diff --unified=2 | head -400 ;;
+  log) gitj log -8 --pretty=format:'%h|%cd|%s' --date=iso-strict ;;
+  diff) gitj status --short; echo "---"; gitj diff --stat; echo "---"; gitj diff --no-ext-diff --unified=2 | head -400 ;;
   deploy)
-    git fetch --quiet origin "$branch"
-    [[ -z "$(git status --porcelain)" ]] || { echo "Deploy bloqueado: hay cambios locales." >&2; exit 20; }
-    [[ "$(git branch --show-current)" == "$branch" ]] || { echo "Deploy bloqueado: rama inesperada." >&2; exit 21; }
-    read -r ahead behind < <(git rev-list --left-right --count "HEAD...origin/$branch")
+    gitj fetch --quiet origin "$branch"
+    [[ -z "$(gitj status --porcelain)" ]] || { echo "Deploy bloqueado: hay cambios locales." >&2; exit 20; }
+    [[ "$(gitj branch --show-current)" == "$branch" ]] || { echo "Deploy bloqueado: rama inesperada." >&2; exit 21; }
+    read -r ahead behind < <(gitj rev-list --left-right --count "HEAD...origin/$branch")
     [[ "$ahead" == "0" ]] || { echo "Deploy bloqueado: existen commits locales sin subir." >&2; exit 22; }
     if [[ "$behind" == "0" ]]; then
       echo "Ya está sincronizado con origin/$branch."
     else
-      git merge --ff-only "origin/$branch"
+      gitj merge --ff-only "origin/$branch"
     fi
-    if [[ -f package.json ]]; then npm install --omit=dev --no-audit --no-fund; fi
-    pm2 restart "$pm2"
-    echo "Deploy completado: $(git rev-parse --short HEAD)"
+    if [[ -f package.json ]]; then run_user npm install --omit=dev --no-audit --no-fund; fi
+    pm2j restart "$pm2"
+    echo "Deploy completado: $(gitj rev-parse --short HEAD)"
     ;;
   *) echo "Acción no permitida" >&2; exit 64 ;;
 esac
