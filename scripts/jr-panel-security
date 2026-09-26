@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  overview)
+    printf 'ufwActive=%s\n' "$(ufw status 2>/dev/null | grep -q '^Status: active' && echo yes || echo no)"
+    printf 'fail2banActive=%s\n' "$(systemctl is-active fail2ban 2>/dev/null || true)"
+    printf 'fail2banEnabled=%s\n' "$(systemctl is-enabled fail2ban 2>/dev/null || true)"
+    printf 'sshActive=%s\n' "$(systemctl is-active ssh 2>/dev/null || true)"
+    printf 'updatesActive=%s\n' "$(systemctl is-active unattended-upgrades 2>/dev/null || true)"
+    printf 'updatesEnabled=%s\n' "$(systemctl is-enabled unattended-upgrades 2>/dev/null || true)"
+    ;;
+  ufw) ufw status numbered ;;
+  fail2ban) fail2ban-client status sshd ;;
+  ssh)
+    sshd -T 2>/dev/null | grep -E '^(port|permitrootlogin|passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication|authenticationmethods|maxauthtries|usepam)'
+    ;;
+  ports) ss -H -lntup ;;
+  logins)
+    journalctl -u ssh --since "24 hours ago" --no-pager -o short-iso 2>/dev/null | grep -Ei 'failed|invalid|accepted' | tail -80 || true
+    ;;
+  reload) fail2ban-client reload ;;
+  *)
+    echo "Acción no permitida" >&2
+    exit 64
+    ;;
+esac
