@@ -3,7 +3,7 @@
 .terminal-screen .xterm{height:100%;padding:0}
 .terminal-screen .xterm-viewport{background:#05090b!important}
 .terminal-screen .xterm-screen{height:100%}
-.terminal-screen .xterm-cursor-layer .xterm-cursor{background:#ffd21c!important;outline:2px solid #ffd21c!important;opacity:1!important}
+.terminal-screen .xterm-cursor-layer .xterm-cursor{background:#ffd21c!important;outline:none!important;opacity:1!important}
 .terminal-screen .xterm-helper-textarea{opacity:0!important}
 
 .terminal-screen .xterm-screen{position:relative}.terminal-screen .jr-terminal-cursor{position:absolute;left:0;top:0;z-index:20;display:none;background:#ffd21c;box-shadow:0 0 7px rgba(255,210,28,.75);pointer-events:none;transition:transform .02s linear}
