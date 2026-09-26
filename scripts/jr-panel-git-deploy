@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project="${2:-}"
+case "$project" in
+  panel) dir="/home/jorge/jr-server-panel"; branch="main"; pm2="jr-server-panel" ;;
+  prod) dir="/home/jorge/jrelectricidad1"; branch="precios-por-m2"; pm2="jr-electricidad" ;;
+  test) dir="/home/jorge/jrelectricidad-pruebas"; branch="precios-por-m2"; pm2="jr-electricidad-pruebas" ;;
+  *) echo "Proyecto no permitido" >&2; exit 64 ;;
+esac
+
+cd "$dir"
+
+status() {
+  git fetch --quiet origin "$branch"
+  local head remote ahead behind dirty
+  head="$(git rev-parse HEAD)"
+  remote="$(git rev-parse "origin/$branch")"
+  read -r ahead behind < <(git rev-list --left-right --count "HEAD...origin/$branch")
+  dirty="$(git status --porcelain)"
+  printf 'project=%s\npath=%s\nbranch=%s\npm2=%s\nhead=%s\nremote=%s\nahead=%s\nbehind=%s\nclean=%s\n' \
+    "$project" "$dir" "$branch" "$pm2" "$head" "$remote" "$ahead" "$behind" "$([[ -z "$dirty" ]] && echo yes || echo no)"
+  echo "last_commit=$(git log -1 --pretty=format:'%h | %s | %cd' --date=iso-strict)"
+  if [[ -n "$dirty" ]]; then
+    echo "changes_begin"
+    printf '%s\n' "$dirty"
+    echo "changes_end"
+  fi
+}
+
+case "${1:-}" in
+  status) status ;;
+  log) git log -8 --pretty=format:'%h|%cd|%s' --date=iso-strict ;;
+  diff) git status --short; echo "---"; git diff --stat; echo "---"; git diff --no-ext-diff --unified=2 | head -400 ;;
+  deploy)
+    git fetch --quiet origin "$branch"
+    [[ -z "$(git status --porcelain)" ]] || { echo "Deploy bloqueado: hay cambios locales." >&2; exit 20; }
+    [[ "$(git branch --show-current)" == "$branch" ]] || { echo "Deploy bloqueado: rama inesperada." >&2; exit 21; }
+    read -r ahead behind < <(git rev-list --left-right --count "HEAD...origin/$branch")
+    [[ "$ahead" == "0" ]] || { echo "Deploy bloqueado: existen commits locales sin subir." >&2; exit 22; }
+    if [[ "$behind" == "0" ]]; then
+      echo "Ya está sincronizado con origin/$branch."
+    else
+      git merge --ff-only "origin/$branch"
+    fi
+    if [[ -f package.json ]]; then npm install --omit=dev --no-audit --no-fund; fi
+    pm2 restart "$pm2"
+    echo "Deploy completado: $(git rev-parse --short HEAD)"
+    ;;
+  *) echo "Acción no permitida" >&2; exit 64 ;;
+esac
