@@ -117,7 +117,7 @@ function terminalCursorSync(){
  const charWidth=probe.getBoundingClientRect().width||dims.width;probe.remove();
  const left=rowRect.left-screenRect.left,top=rowRect.top-screenRect.top;
  terminalCursor.style.width="3px";terminalCursor.style.height=rowRect.height+"px";
- terminalCursor.style.transform=`translate(${left+buf.cursorX*charWidth}px,${top}px)`;terminalCursor.style.display="block";
+ const cursorOffsetX=43.1;terminalCursor.style.transform=`translate(${Math.max(0,left+buf.cursorX*charWidth-cursorOffsetX)}px,${top}px)`;terminalCursor.style.display="block";
 }
 function terminalStatus(on,label){$("terminalState").textContent=label;$("terminalDot").className=on?"online":""}
 function terminalInit(){
