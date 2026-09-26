@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  status)
+    . /etc/os-release
+    echo "os=$PRETTY_NAME"
+    echo "kernel=$(uname -r)"
+    echo "unattended_active=$(systemctl is-active unattended-upgrades 2>/dev/null || true)"
+    echo "unattended_enabled=$(systemctl is-enabled unattended-upgrades 2>/dev/null || true)"
+    if [[ -f /var/run/reboot-required ]]; then echo "reboot_required=yes"; else echo "reboot_required=no"; fi
+    ;;
+  list)
+    apt list --upgradable 2>/dev/null | sed '1d'
+    ;;
+  timers)
+    systemctl list-timers 'apt-*' --no-pager 2>/dev/null || true
+    ;;
+  history)
+    grep -E '^(Start-Date|Commandline|Upgrade:|End-Date)' /var/log/apt/history.log 2>/dev/null | tail -80 || true
+    ;;
+  refresh)
+    apt-get update
+    ;;
+  upgrade)
+    DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
+    ;;
+  *)
+    echo "Acción no permitida" >&2
+    exit 64
+    ;;
+esac
