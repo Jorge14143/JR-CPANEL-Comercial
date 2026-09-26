@@ -1,7 +1,7 @@
 "use strict";
 require("dotenv").config();
 const express=require("express"),os=require("os"),fs=require("fs"),path=require("path"),crypto=require("crypto"),session=require("express-session"),{rateLimit}=require("express-rate-limit"),{authenticator}=require("otplib");
-const {execFile}=require("child_process"),{promisify}=require("util"),execFileAsync=promisify(execFile),app=express();
+const {execFile}=require("child_process"),{promisify}=require("util"),execFileAsync=promisify(execFile),pty=require("node-pty"),{WebSocketServer}=require("ws"),app=express();
 const HOST=process.env.HOST||"127.0.0.1",PORT=Number(process.env.PORT||3100),DATA=path.join(__dirname,"data"),AUDIT=path.join(DATA,"audit.jsonl"),LOGIN=path.join(DATA,"logins.jsonl"),RECOVERY=path.join(DATA,"recovery-codes.json");
 let cpuPrev=null,netPrev=null,publicIpCache={value:null,at:0},failed=new Map(),sessions=new Map();
 fs.mkdirSync(DATA,{recursive:true});
@@ -83,4 +83,27 @@ async function publicIp(){if(publicIpCache.value&&Date.now()-publicIpCache.at<30
 function health(cpu,memory,disk,services,processes,temp){const issues=[];let level="ok";const add=(severity,text)=>{issues.push({severity,text});if(severity==="critical")level="critical";else if(level==="ok")level="warning"};if(cpu>=95)add("critical",`CPU crítica: ${cpu}%`);else if(cpu>=80)add("warning",`CPU elevada: ${cpu}%`);if(memory>=95)add("critical",`RAM crítica: ${memory}%`);else if(memory>=85)add("warning",`RAM elevada: ${memory}%`);if(disk>=95)add("critical",`Disco crítico: ${disk}%`);else if(disk>=85)add("warning",`Disco elevado: ${disk}%`);if(temp!=null&&temp>=90)add("critical",`Temperatura crítica: ${temp}°C`);else if(temp!=null&&temp>=80)add("warning",`Temperatura elevada: ${temp}°C`);for(const [name,on] of Object.entries(services))if(!on)add("critical",`${name} inactivo`);for(const p of processes)if(p.status!=="online")add("critical",`PM2 ${p.name}: ${p.status}`);return{level,issues,summary:level==="ok"?"Todos los servicios y recursos están dentro de parámetros normales":issues[0]?.text||"Revisar servidor"}}
 app.get("/api/dashboard",async(req,res)=>{const total=os.totalmem(),free=os.freemem(),cpu=cpuUsage(),net=network(),temp=temperature();const [d,processes,nginx,mysql,fail2ban,ddns,pub]=await Promise.all([disk(),pm2(),active("nginx"),active("mysql"),active("fail2ban"),active("jr-cloudflare-ddns.timer"),publicIp()]);const services={nginx,mysql,fail2ban,ddns},memory={total,used:total-free,free,percent:Math.round((total-free)/total*100)};res.set("Cache-Control","no-store").json({hostname:os.hostname(),platform:os.platform(),release:os.release(),uptime:os.uptime(),load:os.loadavg(),cpuCount:os.cpus().length,cpuPercent:cpu,temperature:temp,network:{...net,publicIp:pub},memory,disk:d,pm2:processes,services,health:health(cpu,memory.percent,d.percent,services,processes,temp),time:new Date().toISOString()})});
 app.get("/health",(req,res)=>res.json({ok:true,version:"0.12.0",configured:configured()}));
-app.listen(PORT,HOST,()=>console.log(`JR Server Panel v0.10.0 → http://${HOST}:${PORT}`));
+const httpServer=app.listen(PORT,HOST,()=>console.log(`JR Server Panel v0.12.0 → http://${HOST}:${PORT}`));
+const terminalWss=new WebSocketServer({noServer:true});
+function terminalSessionFromCookie(req){return new Promise(resolve=>{app.request=req;app.response={};const res={getHeader(){},setHeader(){},end(){}};app._router?.handle?.(req,res,()=>resolve(req.session));setTimeout(()=>resolve(req.session),100)})}
+httpServer.on("upgrade",(req,socket,head)=>{
+  if(req.url!=="/ws/terminal"){socket.destroy();return}
+  const origin=req.headers.origin||"",expected="http"+(req.socket.encrypted?"s":"")+"://"+req.headers.host;
+  if(origin&&origin!==expected){socket.destroy();return}
+  const fakeRes={getHeader(){},setHeader(){},writeHead(){},end(){}};
+  app(req,fakeRes,()=>{
+    if(!req.session?.authenticated||!sessions.has(req.sessionID)){socket.destroy();return}
+    terminalWss.handleUpgrade(req,socket,head,ws=>terminalWss.emit("connection",ws,req));
+  });
+});
+terminalWss.on("connection",(ws,req)=>{
+  let term;
+  try{
+    term=pty.spawn("/bin/bash",["--login"],{name:"xterm-256color",cols:120,rows:32,cwd:"/home/jorge",env:{...process.env,HOME:"/home/jorge",USER:"jorge",LOGNAME:"jorge",TERM:"xterm-256color"}});
+  }catch(e){ws.close(1011,"terminal unavailable");return}
+  append(AUDIT,{action:"terminal_open",ip:ip(req),user:req.session.user});
+  term.onData(data=>{if(ws.readyState===1)ws.send(JSON.stringify({type:"data",data}))});
+  term.onExit(()=>{if(ws.readyState===1)ws.close()});
+  ws.on("message",raw=>{try{const m=JSON.parse(String(raw));if(m.type==="input"&&typeof m.data==="string"&&m.data.length<=8192)term.write(m.data);else if(m.type==="resize"){const cols=Math.max(40,Math.min(240,Number(m.cols)||120)),rows=Math.max(10,Math.min(80,Number(m.rows)||32));term.resize(cols,rows)}}catch{}});
+  ws.on("close",()=>{try{term.kill()}catch{}append(AUDIT,{action:"terminal_close",ip:ip(req),user:req.session.user})});
+});
