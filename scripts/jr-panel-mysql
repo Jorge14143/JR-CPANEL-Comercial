@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+MYSQL=/usr/bin/mysql
+case "${1:-}" in
+  status)
+    exec "$MYSQL" --batch --skip-column-names -e "SELECT VERSION(); SHOW GLOBAL STATUS WHERE Variable_name IN ('Uptime','Threads_connected','Threads_running','Connections','Aborted_connects','Slow_queries','Questions');"
+    ;;
+  databases)
+    exec "$MYSQL" --batch --skip-column-names -e "SELECT s.SCHEMA_NAME,COALESCE(ROUND(SUM(t.DATA_LENGTH+t.INDEX_LENGTH)/1024/1024,2),0),COUNT(t.TABLE_NAME) FROM information_schema.SCHEMATA s LEFT JOIN information_schema.TABLES t ON t.TABLE_SCHEMA=s.SCHEMA_NAME WHERE s.SCHEMA_NAME IN ('jr_electricidad','jr_electricidad_pruebas') GROUP BY s.SCHEMA_NAME ORDER BY s.SCHEMA_NAME;"
+    ;;
+  prod-tables)
+    exec "$MYSQL" --batch --skip-column-names -e "SELECT TABLE_NAME,ROUND((DATA_LENGTH+INDEX_LENGTH)/1024/1024,2),TABLE_ROWS,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA='jr_electricidad' ORDER BY (DATA_LENGTH+INDEX_LENGTH) DESC,TABLE_NAME LIMIT 100;"
+    ;;
+  test-tables)
+    exec "$MYSQL" --batch --skip-column-names -e "SELECT TABLE_NAME,ROUND((DATA_LENGTH+INDEX_LENGTH)/1024/1024,2),TABLE_ROWS,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA='jr_electricidad_pruebas' ORDER BY (DATA_LENGTH+INDEX_LENGTH) DESC,TABLE_NAME LIMIT 100;"
+    ;;
+  processlist)
+    exec "$MYSQL" --batch --skip-column-names -e "SELECT ID,USER,HOST,COALESCE(DB,'-'),COMMAND,TIME,COALESCE(STATE,'-') FROM information_schema.PROCESSLIST WHERE USER <> 'system user' ORDER BY TIME DESC LIMIT 30;"
+    ;;
+  *)
+    echo "Accion no permitida" >&2
+    exit 64
+    ;;
+esac
