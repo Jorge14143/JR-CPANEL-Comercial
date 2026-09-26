@@ -106,7 +106,7 @@ $("gitDeployNav")?.addEventListener("click",()=>{showView("gitdeploy");loadGitDe
 
 
 let terminalWs=null,terminalEmu=null,terminalFit=null,terminalCursor=null;
-function terminalCursorSync(){if(!terminalEmu||!terminalCursor)return;const core=terminalEmu._core,buf=terminalEmu.buffer.active,screen=$("terminalScreen")?.querySelector(".xterm-screen");if(!core||!buf||!screen)return;const dims=core._renderService?.dimensions?.css?.cell;if(!dims?.width||!dims?.height)return;const canvas=screen.querySelector("canvas"),left=canvas?.offsetLeft||0,top=canvas?.offsetTop||0;terminalCursor.style.width="3px";terminalCursor.style.height=dims.height+"px";terminalCursor.style.transform=`translate(${left+buf.cursorX*dims.width}px,${top+buf.cursorY*dims.height}px)`;terminalCursor.style.display="block"}
+function terminalCursorSync(){if(!terminalEmu||!terminalCursor)return;const core=terminalEmu._core,buf=terminalEmu.buffer.active,screen=$("terminalScreen")?.querySelector(".xterm-screen");if(!core||!buf||!screen)return;const dims=core._renderService?.dimensions?.css?.cell;if(!dims?.width||!dims?.height)return;const rows=screen.querySelector(".xterm-rows"),cell=rows?.querySelector("div"),screenRect=screen.getBoundingClientRect(),rowRect=cell?.getBoundingClientRect(),left=(rowRect?.left||screenRect.left)-screenRect.left,top=(rowRect?.top||screenRect.top)-screenRect.top;terminalCursor.style.width="3px";terminalCursor.style.height=dims.height+"px";terminalCursor.style.transform=`translate(${left+buf.cursorX*dims.width}px,${top+buf.cursorY*dims.height}px)`;terminalCursor.style.display="block"}
 function terminalStatus(on,label){$("terminalState").textContent=label;$("terminalDot").className=on?"online":""}
 function terminalInit(){
  if(terminalEmu)return;
