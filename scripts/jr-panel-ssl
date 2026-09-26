@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  certificates) certbot certificates 2>&1 ;;
+  timer)
+    echo "active=$(systemctl is-active certbot.timer 2>/dev/null || true)"
+    echo "enabled=$(systemctl is-enabled certbot.timer 2>/dev/null || true)"
+    systemctl list-timers certbot.timer --no-pager --no-legend 2>/dev/null || true
+    ;;
+  logs) journalctl -u certbot --since "30 days ago" --no-pager -n 60 2>/dev/null || true ;;
+  renew-dry-run) certbot renew --dry-run --non-interactive 2>&1 ;;
+  *) echo "Acción no permitida" >&2; exit 64 ;;
+esac
