@@ -50,3 +50,12 @@ Abrir `http://127.0.0.1:3100`.
 - Helper privilegiado de lista cerrada; no acepta argumentos ni comandos arbitrarios.
 - Acciones protegidas por sesión, CSRF, confirmación y auditoría.
 - No incluye stop/restart de Nginx desde la web para reducir riesgo de dejar el servidor inaccesible.
+
+
+## V0.6.0 — Fase 6 MySQL
+- Estado y versión del servidor MySQL, uptime, conexiones y consultas.
+- Tamaño y cantidad de tablas de producción y pruebas.
+- Inventario de tablas con tamaño, filas aproximadas y motor.
+- Vista de conexiones/procesos actuales.
+- Helper privilegiado con consultas SQL fijas y estrictamente de solo lectura.
+- Sin editor SQL, DROP/DELETE/UPDATE, restauraciones ni credenciales expuestas al navegador.
