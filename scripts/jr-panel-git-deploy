@@ -15,7 +15,7 @@ cd "$dir"
 # Así se conserva su clave SSH de GitHub y su PM2_HOME sin dar comandos arbitrarios al panel.
 run_user() { sudo -u jorge -H env HOME=/home/jorge PM2_HOME=/home/jorge/.pm2 "$@"; }
 gitj() { run_user git "$@"; }
-pm2j() { run_user pm2 "$@"; }
+pm2j() { run_user env NO_COLOR=1 PM2_COLOR=false pm2 "$@"; }
 
 status() {
   gitj fetch --quiet origin "$branch"
