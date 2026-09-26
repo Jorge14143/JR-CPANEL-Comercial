@@ -8,6 +8,12 @@ case "${1:-}" in
     /usr/sbin/nginx -t
     exec /usr/bin/systemctl reload nginx
     ;;
+  access-log)
+    exec /usr/bin/tail -n 80 /var/log/nginx/access.log
+    ;;
+  error-log)
+    exec /usr/bin/tail -n 80 /var/log/nginx/error.log
+    ;;
   *)
     echo "Accion no permitida" >&2
     exit 64
