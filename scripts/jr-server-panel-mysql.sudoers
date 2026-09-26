@@ -1,0 +1,2 @@
+# JR Server Panel - consultas MySQL estrictamente de solo lectura
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-mysql status, /usr/local/sbin/jr-panel-mysql databases, /usr/local/sbin/jr-panel-mysql prod-tables, /usr/local/sbin/jr-panel-mysql test-tables, /usr/local/sbin/jr-panel-mysql processlist
