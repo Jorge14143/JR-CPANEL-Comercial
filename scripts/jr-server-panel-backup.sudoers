@@ -1,0 +1,2 @@
+# JR Server Panel - backups: inventario y ejecucion del script fijo
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-backup list, /usr/local/sbin/jr-panel-backup usage, /usr/local/sbin/jr-panel-backup script-status, /usr/local/sbin/jr-panel-backup run
