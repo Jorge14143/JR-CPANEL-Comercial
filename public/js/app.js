@@ -109,7 +109,7 @@ let terminalWs=null,terminalEmu=null,terminalFit=null;
 function terminalStatus(on,label){$("terminalState").textContent=label;$("terminalDot").className=on?"online":""}
 function terminalInit(){
  if(terminalEmu)return;
- terminalEmu=new Terminal({cursorBlink:true,convertEol:false,fontFamily:'"Cascadia Mono","Consolas","Liberation Mono",monospace',fontSize:14,theme:{background:"#05090b",foreground:"#d7e3e7",cursor:"#ffd21c",cursorAccent:"#05090b",selectionBackground:"#36505c"},cursorStyle:"block",cursorInactiveStyle:"outline",scrollback:5000});
+ terminalEmu=new Terminal({cursorBlink:false,cursorStyle:"bar",cursorWidth:4,convertEol:false,fontFamily:'"Cascadia Mono","Consolas","Liberation Mono",monospace',fontSize:14,theme:{background:"#05090b",foreground:"#d7e3e7",cursor:"#ffd21c",cursorAccent:"#05090b",selectionBackground:"#36505c"},cursorInactiveStyle:"bar",scrollback:5000});
  terminalFit=new FitAddon.FitAddon();terminalEmu.loadAddon(terminalFit);terminalEmu.open($("terminalScreen"));
  terminalEmu.onData(data=>{if(terminalWs?.readyState===1)terminalWs.send(JSON.stringify({type:"input",data}))});
 }
