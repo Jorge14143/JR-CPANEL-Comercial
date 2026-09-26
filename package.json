@@ -21,6 +21,7 @@
     "node-pty": "^1.0.0",
     "ws": "^8.18.3",
     "@xterm/xterm": "^6.0.0",
-    "@xterm/addon-fit": "^0.11.0"
+    "@xterm/addon-fit": "^0.11.0",
+    "session-file-store": "^1.5.0"
   }
 }
