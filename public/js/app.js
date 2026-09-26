@@ -105,12 +105,13 @@ async function gitDeploy(project){const name=gitNames[project]||project;if(!conf
 $("gitDeployNav")?.addEventListener("click",()=>{showView("gitdeploy");loadGitDeploy()});$("gitDeployClose")?.addEventListener("click",()=>showView("dashboard"));$("gitDeployRefresh")?.addEventListener("click",loadGitDeploy);$("gitDeployCards")?.addEventListener("click",e=>{const l=e.target.closest("[data-git-log]"),d=e.target.closest("[data-git-diff]"),x=e.target.closest("[data-git-deploy]");if(l)gitDetail(l.dataset.gitLog,"log");if(d)gitDetail(d.dataset.gitDiff,"diff");if(x&&!x.disabled)gitDeploy(x.dataset.gitDeploy)});
 
 
-let terminalWs=null,terminalEmu=null,terminalFit=null;
+let terminalWs=null,terminalEmu=null,terminalFit=null,terminalCursor=null;
+function terminalCursorSync(){if(!terminalEmu||!terminalCursor)return;const core=terminalEmu._core,buf=terminalEmu.buffer.active,screen=$("terminalScreen")?.querySelector(".xterm-screen");if(!core||!buf||!screen)return;const dims=core._renderService?.dimensions?.css?.cell;if(!dims?.width||!dims?.height)return;terminalCursor.style.width="3px";terminalCursor.style.height=dims.height+"px";terminalCursor.style.transform=`translate(${buf.cursorX*dims.width}px,${buf.cursorY*dims.height}px)`;terminalCursor.style.display="block"}
 function terminalStatus(on,label){$("terminalState").textContent=label;$("terminalDot").className=on?"online":""}
 function terminalInit(){
  if(terminalEmu)return;
  terminalEmu=new Terminal({cursorBlink:false,cursorStyle:"bar",cursorWidth:4,convertEol:false,fontFamily:'"Cascadia Mono","Consolas","Liberation Mono",monospace',fontSize:14,theme:{background:"#05090b",foreground:"#d7e3e7",cursor:"#ffd21c",cursorAccent:"#05090b",selectionBackground:"#36505c"},cursorInactiveStyle:"bar",scrollback:5000});
- terminalFit=new FitAddon.FitAddon();terminalEmu.loadAddon(terminalFit);terminalEmu.open($("terminalScreen"));
+ terminalFit=new FitAddon.FitAddon();terminalEmu.loadAddon(terminalFit);terminalEmu.open($("terminalScreen"));const screen=$("terminalScreen").querySelector(".xterm-screen");if(screen){terminalCursor=document.createElement("div");terminalCursor.className="jr-terminal-cursor";screen.appendChild(terminalCursor)};terminalEmu.onRender(terminalCursorSync);terminalEmu.onCursorMove(terminalCursorSync);
  terminalEmu.onData(data=>{if(terminalWs?.readyState===1)terminalWs.send(JSON.stringify({type:"input",data}))});
 }
 function terminalResize(){if(!terminalEmu)return;try{terminalFit.fit()}catch{}if(terminalWs?.readyState===1)terminalWs.send(JSON.stringify({type:"resize",cols:terminalEmu.cols,rows:terminalEmu.rows}))}
@@ -119,7 +120,7 @@ function terminalConnect(){
  terminalStatus(false,"CONECTANDO");const proto=location.protocol==="https:"?"wss:":"ws:";
  terminalWs=new WebSocket(proto+"//"+location.host+"/ws/terminal");
  terminalWs.addEventListener("open",()=>{terminalStatus(true,"CONECTADA");terminalResize();terminalEmu.focus()});
- terminalWs.addEventListener("message",e=>{try{const m=JSON.parse(e.data);if(m.type==="data")terminalEmu.write(m.data)}catch{}});
+ terminalWs.addEventListener("message",e=>{try{const m=JSON.parse(e.data);if(m.type==="data")terminalEmu.write(m.data,terminalCursorSync)}catch{}});
  terminalWs.addEventListener("close",()=>{terminalStatus(false,"DESCONECTADA");terminalWs=null});
  terminalWs.addEventListener("error",()=>terminalStatus(false,"ERROR"));
 }
