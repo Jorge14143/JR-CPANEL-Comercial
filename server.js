@@ -99,7 +99,7 @@ httpServer.on("upgrade",(req,socket,head)=>{
 terminalWss.on("connection",(ws,req)=>{
   let term;
   try{
-    term=pty.spawn("/bin/bash",["--login"],{name:"xterm-256color",cols:120,rows:32,cwd:"/home/jorge",env:{...process.env,HOME:"/home/jorge",USER:"jorge",LOGNAME:"jorge",TERM:"xterm-256color"}});
+    term=pty.spawn("/bin/bash",["--noprofile","--norc"],{name:"xterm-256color",cols:120,rows:32,cwd:"/home/jorge",env:{...process.env,HOME:"/home/jorge",USER:"jorge",LOGNAME:"jorge",TERM:"xterm-256color",PROMPT_COMMAND:"",PS1:"jorge@jrelectricidad:\\w\\$ "}});
   }catch(e){ws.close(1011,"terminal unavailable");return}
   append(AUDIT,{action:"terminal_open",ip:ip(req),user:req.session.user});
   term.onData(data=>{if(ws.readyState===1)ws.send(JSON.stringify({type:"data",data}))});
