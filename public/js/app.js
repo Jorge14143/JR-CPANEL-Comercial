@@ -106,7 +106,19 @@ $("gitDeployNav")?.addEventListener("click",()=>{showView("gitdeploy");loadGitDe
 
 
 let terminalWs=null,terminalEmu=null,terminalFit=null,terminalCursor=null;
-function terminalCursorSync(){if(!terminalEmu||!terminalCursor)return;const core=terminalEmu._core,buf=terminalEmu.buffer.active,screen=$("terminalScreen")?.querySelector(".xterm-screen");if(!core||!buf||!screen)return;const dims=core._renderService?.dimensions?.css?.cell;if(!dims?.width||!dims?.height)return;const rows=screen.querySelector(".xterm-rows"),row=rows?.children?.[buf.cursorY],screenRect=screen.getBoundingClientRect(),rowRect=row?.getBoundingClientRect(),left=(rowRect?.left||screenRect.left)-screenRect.left,top=(rowRect?.top||screenRect.top)-screenRect.top;terminalCursor.style.width="3px";terminalCursor.style.height=dims.height+"px";terminalCursor.style.transform=`translate(${left+buf.cursorX*dims.width}px,${top}px)`;terminalCursor.style.display="block"}
+function terminalCursorSync(){
+ if(!terminalEmu||!terminalCursor)return;
+ const core=terminalEmu._core,buf=terminalEmu.buffer.active,screen=$("terminalScreen")?.querySelector(".xterm-screen");
+ if(!core||!buf||!screen)return;
+ const dims=core._renderService?.dimensions?.css?.cell;if(!dims?.width||!dims?.height)return;
+ const rows=screen.querySelector(".xterm-rows"),row=rows?.children?.[buf.cursorY];if(!row)return;
+ const screenRect=screen.getBoundingClientRect(),rowRect=row.getBoundingClientRect();
+ const probe=document.createElement("span");probe.textContent="M";probe.style.cssText='position:absolute;visibility:hidden;white-space:pre;font:14px "Cascadia Mono","Consolas","Liberation Mono",monospace';screen.appendChild(probe);
+ const charWidth=probe.getBoundingClientRect().width||dims.width;probe.remove();
+ const left=rowRect.left-screenRect.left,top=rowRect.top-screenRect.top;
+ terminalCursor.style.width="3px";terminalCursor.style.height=rowRect.height+"px";
+ terminalCursor.style.transform=`translate(${left+buf.cursorX*charWidth}px,${top}px)`;terminalCursor.style.display="block";
+}
 function terminalStatus(on,label){$("terminalState").textContent=label;$("terminalDot").className=on?"online":""}
 function terminalInit(){
  if(terminalEmu)return;
