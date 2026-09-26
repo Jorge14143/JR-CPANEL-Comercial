@@ -10,7 +10,7 @@ let csrfToken="";fetch("/api/auth/session",{cache:"no-store"}).then(r=>r.ok?r.js
 
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));async function loadSecurity(){try{const [sr,hr]=await Promise.all([fetch("/api/auth/sessions",{cache:"no-store"}),fetch("/api/auth/history",{cache:"no-store"})]);if(!sr.ok||!hr.ok)throw Error();const s=await sr.json(),h=await hr.json();$("activeSessions").innerHTML=s.sessions.map(x=>`<div><b>${x.current?"● ACTUAL":"○ ACTIVA"}</b><span>${esc(x.ip)} · ${esc(x.device||x.agent).slice(0,70)}</span><small>${new Date(x.loginAt).toLocaleString("es-AR")}</small></div>`).join("")||"<p>Sin sesiones</p>";$("loginHistory").innerHTML=h.logins.slice(0,12).map(x=>`<div><b class="${x.success?"good":"bad"}">${x.success?"ACCESO CORRECTO":"FALLIDO"}</b><span>${esc(x.ip)} · ${esc(x.user)}</span><small>${new Date(x.time).toLocaleString("es-AR")}</small></div>`).join("")||"<p>Sin registros</p>";$("auditHistory").innerHTML=h.audit.slice(0,12).map(x=>`<div><b>${esc(x.action).toUpperCase()}</b><span>${esc(x.ip)} · ${esc(x.user)}</span><small>${new Date(x.time).toLocaleString("es-AR")}</small></div>`).join("")||"<p>Sin registros</p>"}catch{$("activeSessions").innerHTML="<p>No se pudo cargar la información.</p>"}}$("securityDetails")?.addEventListener("click",()=>{$("securityPanel").hidden=false;loadSecurity()});$("securityClose")?.addEventListener("click",()=>{$("securityPanel").hidden=true});$("logoutAllBtn")?.addEventListener("click",async()=>{if(!confirm("¿Cerrar TODAS las sesiones del panel? Vas a tener que iniciar sesión nuevamente."))return;const r=await fetch("/api/auth/logout-all",{method:"POST",headers:{"x-csrf-token":csrfToken}});if(r.ok)location.replace("/login")});
 
-function showView(view){const dash=$("dashboardView"),pm=$("pm2Panel"),ng=$("nginxPanel"),my=$("mysqlPanel"),bk=$("backupPanel");if(dash)dash.hidden=view!=="dashboard";if(pm)pm.hidden=view!=="pm2";if(ng)ng.hidden=view!=="nginx";if(my)my.hidden=view!=="mysql";if(bk)bk.hidden=view!=="backups";document.querySelectorAll("#sidebar nav a").forEach(a=>a.classList.remove("on"));const nav=view==="pm2"?$("pm2Nav"):view==="nginx"?$("nginxNav"):view==="mysql"?$("mysqlNav"):view==="backups"?$("backupNav"):$("dashboardNav");nav?.classList.add("on");scrollTo({top:0,behavior:"smooth"});closeMenu()}
+function showView(view){const dash=$("dashboardView"),pm=$("pm2Panel"),ng=$("nginxPanel"),my=$("mysqlPanel"),bk=$("backupPanel"),sec=$("systemSecurityPanel");if(dash)dash.hidden=view!=="dashboard";if(pm)pm.hidden=view!=="pm2";if(ng)ng.hidden=view!=="nginx";if(my)my.hidden=view!=="mysql";if(bk)bk.hidden=view!=="backups";if(sec)sec.hidden=view!=="security";document.querySelectorAll("#sidebar nav a").forEach(a=>a.classList.remove("on"));const nav=view==="pm2"?$("pm2Nav"):view==="nginx"?$("nginxNav"):view==="mysql"?$("mysqlNav"):view==="backups"?$("backupNav"):view==="security"?$("systemSecurityNav"):$("dashboardNav");nav?.classList.add("on");scrollTo({top:0,behavior:"smooth"});closeMenu()}
 $("dashboardNav")?.addEventListener("click",()=>showView("dashboard"));
 
 let pm2Busy=false;
@@ -42,3 +42,47 @@ function backupAge(iso){if(!iso)return"--";const ms=Date.now()-new Date(iso).get
 async function loadBackups(){try{const r=await fetch("/api/backups",{cache:"no-store"});if(r.status===401)return location.replace("/login");const d=await r.json();if(!r.ok)throw Error();$("backupCount").textContent=d.totalFiles.toLocaleString("es-AR");$("backupSize").textContent=fmtBytes(d.totalBytes);$("backupLast").textContent=d.last?new Date(d.last.mtime).toLocaleString("es-AR"):"SIN BACKUPS";$("backupLastAge").textContent=d.last?backupAge(d.last.mtime):"No se encontraron archivos";$("backupScript").textContent=d.script.exists?"LISTO":"NO DISPONIBLE";$("backupScript").className=d.script.exists?"good":"bad";$("backupScriptMeta").textContent=d.script.exists?"modo "+d.script.mode+" · "+d.script.owner:"backup-jr.sh no encontrado";$("backupRows").innerHTML=d.files.length?d.files.map(x=>`<tr><td title="${esc(x.path)}">${esc(x.name)}</td><td>${x.kind==="database"?"BASE DE DATOS":x.kind==="archive"?"ARCHIVO":"OTRO"}</td><td>${new Date(x.mtime).toLocaleString("es-AR")}</td><td>${fmtBytes(x.size)}</td></tr>`).join(""):'<tr><td colspan="4">No se encontraron respaldos.</td></tr>'}catch{$("backupRows").innerHTML='<tr><td colspan="4">No se pudo consultar backups.</td></tr>'}}
 async function runBackup(){if(!confirm("¿Crear un backup completo ahora? Se ejecutará únicamente ~/backup-jr.sh."))return;const b=$("backupRun");b.disabled=true;$("backupOutput").textContent="Ejecutando backup...";try{const r=await fetch("/api/backups/run",{method:"POST",headers:{"x-csrf-token":csrfToken}}),d=await r.json();$("backupOutput").textContent=(r.ok?"OK\n":"ERROR\n")+(d.output||d.error||"");if(r.ok)await loadBackups()}catch{$("backupOutput").textContent="ERROR\nNo se pudo ejecutar el backup."}finally{b.disabled=false}}
 $("backupNav")?.addEventListener("click",()=>{showView("backups");loadBackups()});$("backupClose")?.addEventListener("click",()=>showView("dashboard"));$("backupRefresh")?.addEventListener("click",loadBackups);$("backupRun")?.addEventListener("click",runBackup);
+
+
+async function loadSystemSecurity(){
+  try{
+    const r=await fetch("/api/security/system",{cache:"no-store"});
+    if(r.status===401)return location.replace("/login");
+    const d=await r.json();
+    if(!r.ok)throw Error();
+    const setStatus=(id,on)=>{const e=$(id);e.textContent=on?"ACTIVO":"INACTIVO";e.className=on?"good":"bad"};
+    setStatus("secUfw",d.overview.ufwActive);
+    setStatus("secFail2ban",d.overview.fail2banActive);
+    setStatus("secSsh",d.overview.sshActive);
+    setStatus("secUpdates",d.overview.updatesActive&&d.overview.updatesEnabled);
+    $("secFail2banMeta").textContent=(d.overview.fail2banEnabled?"habilitado al iniciar":"no habilitado")+" · "+d.banned.length+" IP bloqueada"+(d.banned.length===1?"":"s");
+    $("secSshMeta").textContent="puerto "+esc(d.ssh.port||"--")+" · contraseña "+(d.ssh.passwordauthentication==="no"?"desactivada":"REVISAR");
+    const labels={port:"Puerto",permitrootlogin:"Login root",passwordauthentication:"Contraseña",kbdinteractiveauthentication:"Teclado interactivo",pubkeyauthentication:"Clave pública",authenticationmethods:"Métodos",maxauthtries:"Máx. intentos",usepam:"PAM"};
+    $("secSshConfig").innerHTML=Object.entries(d.ssh).map(([k,v])=>`<div><span>${esc(labels[k]||k)}</span><b>${esc(v)}</b></div>`).join("")||"<p>Sin datos SSH.</p>";
+    $("secFail2banRaw").textContent=d.fail2ban.join("\n")||"Sin datos.";
+    $("secUfwRaw").textContent=d.ufw.join("\n")||"Sin reglas.";
+    $("secPorts").textContent=d.ports.join("\n")||"Sin puertos detectados.";
+    $("secLogins").textContent=d.logins.join("\n")||"Sin accesos SSH en las últimas 24 horas.";
+  }catch{
+    $("secSshConfig").innerHTML="<p>No se pudo consultar la seguridad del servidor.</p>";
+    $("secFail2banRaw").textContent="No disponible.";
+    $("secUfwRaw").textContent="No disponible.";
+    $("secPorts").textContent="No disponible.";
+    $("secLogins").textContent="No disponible.";
+  }
+}
+async function reloadFail2ban(){
+  if(!confirm("¿Recargar la configuración de Fail2Ban?"))return;
+  const b=$("secFail2banReload");b.disabled=true;
+  try{
+    const r=await fetch("/api/security/fail2ban/reload",{method:"POST",headers:{"x-csrf-token":csrfToken}});
+    const d=await r.json();
+    if(!r.ok)throw Error(d.output||d.error);
+    await loadSystemSecurity();
+  }catch{alert("No se pudo recargar Fail2Ban.");}
+  finally{b.disabled=false}
+}
+$("systemSecurityNav")?.addEventListener("click",()=>{showView("security");loadSystemSecurity()});
+$("systemSecurityClose")?.addEventListener("click",()=>showView("dashboard"));
+$("systemSecurityRefresh")?.addEventListener("click",loadSystemSecurity);
+$("secFail2banReload")?.addEventListener("click",reloadFail2ban);
