@@ -1,0 +1,32 @@
+#!/bin/sh
+set -eu
+BASE=/home/jorge/backups-jr
+SCRIPT=/home/jorge/backup-jr.sh
+case "${1:-}" in
+  list)
+    [ -d "$BASE" ] || exit 0
+    find "$BASE" -type f \( -name '*.sql' -o -name '*.sql.gz' -o -name '*.tar.gz' -o -name '*.tgz' -o -name '*.zip' -o -name '*.txt' -o -name '*.json' \) -printf '%T@\t%s\t%p\n' 2>/dev/null | sort -nr | head -100
+    ;;
+  usage)
+    [ -d "$BASE" ] || { printf '0\t0\n'; exit 0; }
+    bytes=$(du -sb "$BASE" 2>/dev/null | awk '{print $1}')
+    count=$(find "$BASE" -type f 2>/dev/null | wc -l)
+    printf '%s\t%s\n' "${bytes:-0}" "${count:-0}"
+    ;;
+  script-status)
+    if [ -f "$SCRIPT" ]; then
+      stat -c '%a\t%U\t%G\t%Y\t%s' "$SCRIPT"
+    else
+      printf 'missing\n'
+    fi
+    ;;
+  run)
+    [ -f "$SCRIPT" ] || { echo 'backup_script_missing' >&2; exit 2; }
+    [ -x "$SCRIPT" ] || { echo 'backup_script_not_executable' >&2; exit 3; }
+    exec "$SCRIPT"
+    ;;
+  *)
+    echo "Accion no permitida" >&2
+    exit 64
+    ;;
+esac
