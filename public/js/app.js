@@ -105,7 +105,7 @@ async function gitDeploy(project){const name=gitNames[project]||project;if(!conf
 $("gitDeployNav")?.addEventListener("click",()=>{showView("gitdeploy");loadGitDeploy()});$("gitDeployClose")?.addEventListener("click",()=>showView("dashboard"));$("gitDeployRefresh")?.addEventListener("click",loadGitDeploy);$("gitDeployCards")?.addEventListener("click",e=>{const l=e.target.closest("[data-git-log]"),d=e.target.closest("[data-git-diff]"),x=e.target.closest("[data-git-deploy]");if(l)gitDetail(l.dataset.gitLog,"log");if(d)gitDetail(d.dataset.gitDiff,"diff");if(x&&!x.disabled)gitDeploy(x.dataset.gitDeploy)});
 
 
-let terminalWs=null,terminalEmu=null,terminalFit=null;
+let terminalWs=null,terminalEmu=null,terminalFit=null,terminalReconnectTimer=null,terminalReconnectAttempt=0,terminalWanted=false;
 function terminalStatus(on,label){$("terminalState").textContent=label;$("terminalDot").className=on?"online":""}
 function terminalInit(){
  if(terminalEmu)return;
@@ -114,14 +114,22 @@ function terminalInit(){
  terminalEmu.onData(data=>{if(terminalWs?.readyState===1)terminalWs.send(JSON.stringify({type:"input",data}))});
 }
 function terminalResize(){if(!terminalEmu)return;try{terminalFit.fit()}catch{}if(terminalWs?.readyState===1)terminalWs.send(JSON.stringify({type:"resize",cols:terminalEmu.cols,rows:terminalEmu.rows}))}
-function terminalConnect(){
- terminalInit();if(terminalWs&&terminalWs.readyState<=1){terminalEmu.focus();return}
- terminalStatus(false,"CONECTANDO");const proto=location.protocol==="https:"?"wss:":"ws:";
- terminalWs=new WebSocket(proto+"//"+location.host+"/ws/terminal");
- terminalWs.addEventListener("open",()=>{terminalStatus(true,"CONECTADA");terminalResize();terminalEmu.focus()});
- terminalWs.addEventListener("message",e=>{try{const m=JSON.parse(e.data);if(m.type==="data")terminalEmu.write(m.data)}catch{}});
- terminalWs.addEventListener("close",()=>{terminalStatus(false,"DESCONECTADA");terminalWs=null});
- terminalWs.addEventListener("error",()=>terminalStatus(false,"ERROR"));
+function terminalScheduleReconnect(){
+ if(!terminalWanted||terminalReconnectTimer)return;
+ const delay=Math.min(1000*Math.pow(2,Math.min(terminalReconnectAttempt++,4)),15000);
+ terminalStatus(false,"RECONECTANDO...");
+ terminalReconnectTimer=setTimeout(()=>{terminalReconnectTimer=null;terminalConnect(true)},delay);
+}
+function terminalConnect(reconnect=false){
+ terminalInit();terminalWanted=true;
+ if(terminalWs&&terminalWs.readyState<=1){terminalEmu.focus();return}
+ if(!reconnect)terminalReconnectAttempt=0;
+ terminalStatus(false,reconnect?"RECONECTANDO...":"CONECTANDO");const proto=location.protocol==="https:"?"wss:":"ws:";
+ const ws=new WebSocket(proto+"//"+location.host+"/ws/terminal");terminalWs=ws;
+ ws.addEventListener("open",()=>{if(terminalWs!==ws)return;terminalReconnectAttempt=0;terminalStatus(true,"CONECTADA");terminalResize();terminalEmu.focus()});
+ ws.addEventListener("message",e=>{if(terminalWs!==ws)return;try{const m=JSON.parse(e.data);if(m.type==="data")terminalEmu.write(m.data)}catch{}});
+ ws.addEventListener("close",()=>{if(terminalWs===ws)terminalWs=null;terminalScheduleReconnect()});
+ ws.addEventListener("error",()=>{if(terminalWs===ws)terminalStatus(false,"ERROR")});
 }
 $("terminalNav")?.addEventListener("click",()=>{showView("terminal");terminalConnect();setTimeout(terminalResize,100)});
 $("terminalClose")?.addEventListener("click",()=>showView("dashboard"));
