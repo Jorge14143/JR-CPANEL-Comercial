@@ -105,24 +105,26 @@ async function gitDeploy(project){const name=gitNames[project]||project;if(!conf
 $("gitDeployNav")?.addEventListener("click",()=>{showView("gitdeploy");loadGitDeploy()});$("gitDeployClose")?.addEventListener("click",()=>showView("dashboard"));$("gitDeployRefresh")?.addEventListener("click",loadGitDeploy);$("gitDeployCards")?.addEventListener("click",e=>{const l=e.target.closest("[data-git-log]"),d=e.target.closest("[data-git-diff]"),x=e.target.closest("[data-git-deploy]");if(l)gitDetail(l.dataset.gitLog,"log");if(d)gitDetail(d.dataset.gitDiff,"diff");if(x&&!x.disabled)gitDeploy(x.dataset.gitDeploy)});
 
 
-let terminalWs=null,terminalBuffer="";
-function terminalRender(data){terminalBuffer+=data;if(terminalBuffer.length>250000)terminalBuffer=terminalBuffer.slice(-200000);$("terminalOutput").textContent=terminalBuffer;const s=$("terminalScreen");requestAnimationFrame(()=>{s.scrollTop=s.scrollHeight})}
+let terminalWs=null,terminalEmu=null,terminalFit=null;
 function terminalStatus(on,label){$("terminalState").textContent=label;$("terminalDot").className=on?"online":""}
+function terminalInit(){
+ if(terminalEmu)return;
+ terminalEmu=new Terminal({cursorBlink:true,convertEol:false,fontFamily:'"Cascadia Mono","Consolas","Liberation Mono",monospace',fontSize:14,theme:{background:"#05090b",foreground:"#d7e3e7",cursor:"#ffd21c"},scrollback:5000});
+ terminalFit=new FitAddon.FitAddon();terminalEmu.loadAddon(terminalFit);terminalEmu.open($("terminalScreen"));
+ terminalEmu.onData(data=>{if(terminalWs?.readyState===1)terminalWs.send(JSON.stringify({type:"input",data}))});
+}
+function terminalResize(){if(!terminalEmu)return;try{terminalFit.fit()}catch{}if(terminalWs?.readyState===1)terminalWs.send(JSON.stringify({type:"resize",cols:terminalEmu.cols,rows:terminalEmu.rows}))}
 function terminalConnect(){
- if(terminalWs&&terminalWs.readyState<=1)return;
- terminalStatus(false,"CONECTANDO");
- const proto=location.protocol==="https:"?"wss:":"ws:";
+ terminalInit();if(terminalWs&&terminalWs.readyState<=1){terminalEmu.focus();return}
+ terminalStatus(false,"CONECTANDO");const proto=location.protocol==="https:"?"wss:":"ws:";
  terminalWs=new WebSocket(proto+"//"+location.host+"/ws/terminal");
- terminalWs.addEventListener("open",()=>{terminalStatus(true,"CONECTADA");terminalResize();$("terminalInput").focus()});
- terminalWs.addEventListener("message",e=>{try{const m=JSON.parse(e.data);if(m.type==="data")terminalRender(m.data)}catch{}});
+ terminalWs.addEventListener("open",()=>{terminalStatus(true,"CONECTADA");terminalResize();terminalEmu.focus()});
+ terminalWs.addEventListener("message",e=>{try{const m=JSON.parse(e.data);if(m.type==="data")terminalEmu.write(m.data)}catch{}});
  terminalWs.addEventListener("close",()=>{terminalStatus(false,"DESCONECTADA");terminalWs=null});
  terminalWs.addEventListener("error",()=>terminalStatus(false,"ERROR"));
 }
-function terminalResize(){if(!terminalWs||terminalWs.readyState!==1)return;const s=$("terminalScreen"),cs=getComputedStyle($("terminalOutput")),probe=document.createElement("span");probe.textContent="M";probe.style.cssText="position:absolute;visibility:hidden;font:"+cs.font;document.body.appendChild(probe);const w=Math.max(8,probe.getBoundingClientRect().width),h=Math.max(14,probe.getBoundingClientRect().height);probe.remove();terminalWs.send(JSON.stringify({type:"resize",cols:Math.max(40,Math.floor((s.clientWidth-28)/w)),rows:Math.max(10,Math.floor((s.clientHeight-28)/h))}))}
-$("terminalNav")?.addEventListener("click",()=>{showView("terminal");terminalConnect();setTimeout(terminalResize,80)});
+$("terminalNav")?.addEventListener("click",()=>{showView("terminal");terminalConnect();setTimeout(terminalResize,100)});
 $("terminalClose")?.addEventListener("click",()=>showView("dashboard"));
-$("terminalClear")?.addEventListener("click",()=>{terminalBuffer="";$("terminalOutput").textContent="";$("terminalInput").focus()});
-$("terminalScreen")?.addEventListener("click",()=>$("terminalInput").focus());
-$("terminalInput")?.addEventListener("input",e=>{const v=e.target.value;if(v&&terminalWs?.readyState===1)terminalWs.send(JSON.stringify({type:"input",data:v}));e.target.value=""});
-$("terminalInput")?.addEventListener("keydown",e=>{const map={Enter:"\r",Backspace:"\x7f",Tab:"\t",ArrowUp:"\x1b[A",ArrowDown:"\x1b[B",ArrowRight:"\x1b[C",ArrowLeft:"\x1b[D",Home:"\x1b[H",End:"\x1b[F",Delete:"\x1b[3~"};if(map[e.key]){e.preventDefault();if(terminalWs?.readyState===1)terminalWs.send(JSON.stringify({type:"input",data:map[e.key]}))}else if(e.ctrlKey&&e.key.length===1){e.preventDefault();const c=String.fromCharCode(e.key.toUpperCase().charCodeAt(0)-64);if(terminalWs?.readyState===1)terminalWs.send(JSON.stringify({type:"input",data:c}))}});
+$("terminalClear")?.addEventListener("click",()=>{terminalInit();terminalEmu.clear();terminalEmu.focus()});
+$("terminalScreen")?.addEventListener("click",()=>terminalEmu?.focus());
 addEventListener("resize",()=>{if(!$("terminalPanel")?.hidden)terminalResize()});
