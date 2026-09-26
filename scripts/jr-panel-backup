@@ -15,7 +15,7 @@ case "${1:-}" in
     ;;
   script-status)
     if [ -f "$SCRIPT" ]; then
-      stat -c '%a\t%U\t%G\t%Y\t%s' "$SCRIPT"
+      stat -c '%a|%U|%G|%Y|%s' "$SCRIPT"
     else
       printf 'missing\n'
     fi
