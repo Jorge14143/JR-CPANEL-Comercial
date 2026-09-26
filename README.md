@@ -40,3 +40,13 @@ Abrir `http://127.0.0.1:3100`.
 - Los procesos se validan contra el inventario real de PM2; no se aceptan comandos arbitrarios.
 - Las acciones PM2 quedan registradas en auditoría.
 - No se implementan delete, shell ni ejecución libre de comandos.
+
+
+## V0.5.0 — Fase 5 Nginx
+- Estado, versión, conexiones TCP y sitios habilitados.
+- Visor de access/error logs cuando el sistema permite lectura.
+- Validación de configuración con nginx -t.
+- Recarga segura: siempre valida antes de ejecutar systemctl reload nginx.
+- Helper privilegiado de lista cerrada; no acepta argumentos ni comandos arbitrarios.
+- Acciones protegidas por sesión, CSRF, confirmación y auditoría.
+- No incluye stop/restart de Nginx desde la web para reducir riesgo de dejar el servidor inaccesible.
