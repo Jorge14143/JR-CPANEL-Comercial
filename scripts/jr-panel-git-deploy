@@ -3,9 +3,9 @@ set -euo pipefail
 
 project="${2:-}"
 case "$project" in
-  panel) dir="/home/jorge/jr-server-panel"; branch="main"; pm2="jr-server-panel" ;;
-  prod) dir="/home/jorge/jrelectricidad1"; branch="precios-por-m2"; pm2="jr-electricidad" ;;
-  test) dir="/home/jorge/jrelectricidad-pruebas"; branch="precios-por-m2"; pm2="jr-electricidad-pruebas" ;;
+  panel) dir="/srv/proyectos/jr-server-panel"; branch="main"; pm2="jr-server-panel" ;;
+  prod) dir="/srv/proyectos/jrelectricidad1"; branch="precios-por-m2"; pm2="jr-electricidad" ;;
+  test) dir="/srv/proyectos/jrelectricidad-pruebas"; branch="precios-por-m2"; pm2="jr-electricidad-pruebas" ;;
   *) echo "Proyecto no permitido" >&2; exit 64 ;;
 esac
 
