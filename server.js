@@ -90,7 +90,42 @@ function safeName(v){const n=String(v||"").trim();if(!n||n==="."||n===".."||n.in
 async function copyEntry(src,dst){const st=await fs.promises.lstat(src);if(st.isSymbolicLink())throw Object.assign(Error("symlink_blocked"),{code:"FORBIDDEN"});if(st.isDirectory())return fs.promises.cp(src,dst,{recursive:true,errorOnExist:true,force:false});return fs.promises.copyFile(src,dst,fs.constants.COPYFILE_EXCL)}
 function readJsonLines(file,limit=120){try{return fs.readFileSync(file,"utf8").trim().split("\n").filter(Boolean).slice(-limit).map(x=>{try{return JSON.parse(x)}catch{return null}}).filter(Boolean)}catch{return[]}}
 app.get("/api/logs/central",async(req,res)=>{try{const [names,ngErr]=await Promise.all([pm2Names(),nginxAction("error-log").then(x=>x.stdout).catch(()=>"" )]),processLogs={};for(const name of names){processLogs[name]=(await cmd("pm2",["logs",name,"--nostream","--lines","60","--raw"])).split("\n").filter(Boolean).slice(-80)}res.set("Cache-Control","no-store").json({audit:readJsonLines(AUDIT,100).reverse(),logins:readJsonLines(LOGIN,100).reverse(),nginx:String(ngErr||"").split("\n").filter(Boolean).slice(-100),pm2:processLogs})}catch{res.status(500).json({error:"logs_unavailable"})}});
-app.get("/api/alerts",async(req,res)=>{try{const [d,processes]=await Promise.all([disk(),pm2()]),mem=os.totalmem()?Math.round((1-os.freemem()/os.totalmem())*100):0,alerts=[];if(d.percent>=90)alerts.push({level:"critical",title:"Disco casi lleno",detail:d.percent+"% utilizado"});else if(d.percent>=80)alerts.push({level:"warning",title:"Uso de disco elevado",detail:d.percent+"% utilizado"});if(mem>=90)alerts.push({level:"critical",title:"RAM elevada",detail:mem+"% utilizada"});else if(mem>=80)alerts.push({level:"warning",title:"Uso de RAM elevado",detail:mem+"% utilizada"});for(const p of processes)if(p.status!=="online")alerts.push({level:"critical",title:"PM2 · "+p.name,detail:"Estado "+p.status});const since=Date.now()-24*60*60*1000,failed24=readJsonLines(LOGIN,500).filter(x=>x.success===false&&Date.parse(x.time)>=since).length;if(failed24>=10)alerts.push({level:"warning",title:"Intentos de acceso",detail:failed24+" fallidos en 24 h"});res.set("Cache-Control","no-store").json({generatedAt:new Date().toISOString(),diskPercent:d.percent,memoryPercent:mem,failedLogins24h:failed24,alerts})}catch{res.status(500).json({error:"alerts_unavailable"})}});
+app.get("/api/alerts",async(req,res)=>{try{
+  const [d,processes,nginxOn,mysqlOn,backupResult,sslResult,updatesResult]=await Promise.all([
+    disk(),pm2(),active("nginx"),active("mysql"),
+    Promise.all([backupAction("list"),backupAction("script-status")]).then(([list,script])=>({list:list.stdout,script:script.stdout})).catch(()=>null),
+    sslAction("certificates").then(x=>parseCertbot(x.stdout)).catch(()=>null),
+    Promise.all([updatesAction("status"),updatesAction("list")]).then(([status,list])=>({status:updateKv(status.stdout),list:String(list.stdout||"").split("\n").filter(Boolean)})).catch(()=>null)
+  ]);
+  const mem=os.totalmem()?Math.round((1-os.freemem()/os.totalmem())*100):0,alerts=[];
+  if(d.percent>=90)alerts.push({level:"critical",title:"Disco casi lleno",detail:d.percent+"% utilizado"});else if(d.percent>=80)alerts.push({level:"warning",title:"Uso de disco elevado",detail:d.percent+"% utilizado"});
+  if(mem>=90)alerts.push({level:"critical",title:"RAM elevada",detail:mem+"% utilizada"});else if(mem>=80)alerts.push({level:"warning",title:"Uso de RAM elevado",detail:mem+"% utilizada"});
+  for(const p of processes)if(p.status!=="online")alerts.push({level:"critical",title:"PM2 · "+p.name,detail:"Estado "+p.status});
+  if(!nginxOn)alerts.push({level:"critical",title:"Nginx caído",detail:"El servicio nginx no está activo"});
+  if(!mysqlOn)alerts.push({level:"critical",title:"MySQL caído",detail:"El servicio mysql no está activo"});
+  const since=Date.now()-24*60*60*1000,failed24=readJsonLines(LOGIN,500).filter(x=>x.success===false&&Date.parse(x.time)>=since).length;
+  if(failed24>=10)alerts.push({level:"warning",title:"Intentos de acceso",detail:failed24+" fallidos en 24 h"});
+  let backupAgeHours=null;
+  if(backupResult){
+    const files=String(backupResult.list||"").trim().split("\n").filter(Boolean).map(line=>Number(line.split("\t")[0])||0).filter(Boolean).sort((a,b)=>b-a);
+    backupAgeHours=files.length?Math.round(((Date.now()-files[0]*1000)/3600000)*10)/10:null;
+    const scriptExists=String(backupResult.script||"").trim()!=="missing";
+    if(!scriptExists)alerts.push({level:"critical",title:"Backup sin script",detail:"No se encontró el script de respaldo"});
+    if(backupAgeHours===null)alerts.push({level:"critical",title:"Sin backups",detail:"No se encontró ningún respaldo"});
+    else if(backupAgeHours>72)alerts.push({level:"critical",title:"Backup muy antiguo",detail:"Último respaldo hace "+backupAgeHours+" h"});
+    else if(backupAgeHours>48)alerts.push({level:"warning",title:"Backup antiguo",detail:"Último respaldo hace "+backupAgeHours+" h"});
+  }else alerts.push({level:"warning",title:"Backup no verificable",detail:"No se pudo consultar el estado de respaldos"});
+  if(sslResult===null)alerts.push({level:"warning",title:"SSL no verificable",detail:"No se pudieron consultar los certificados"});
+  else for(const cert of sslResult){if(cert.days!==null&&cert.days<=7)alerts.push({level:"critical",title:"SSL próximo a vencer",detail:(cert.name||cert.domains.join(", "))+" · "+cert.days+" días"});else if(cert.days!==null&&cert.days<=30)alerts.push({level:"warning",title:"SSL próximo a vencer",detail:(cert.name||cert.domains.join(", "))+" · "+cert.days+" días"});}
+  let securityUpdates=0,rebootRequired=false;
+  if(updatesResult){
+    securityUpdates=updatesResult.list.filter(line=>/security/i.test(line)).length;
+    rebootRequired=updatesResult.status.reboot_required==="yes";
+    if(securityUpdates>0)alerts.push({level:"warning",title:"Actualizaciones de seguridad",detail:securityUpdates+" paquete(s) pendiente(s)"});
+    if(rebootRequired)alerts.push({level:"warning",title:"Reinicio pendiente",detail:"El sistema requiere reinicio para completar actualizaciones"});
+  }else alerts.push({level:"warning",title:"Actualizaciones no verificables",detail:"No se pudo consultar APT"});
+  res.set("Cache-Control","no-store").json({generatedAt:new Date().toISOString(),diskPercent:d.percent,memoryPercent:mem,failedLogins24h:failed24,nginxActive:nginxOn,mysqlActive:mysqlOn,backupAgeHours,securityUpdates,rebootRequired,alerts})
+}catch{res.status(500).json({error:"alerts_unavailable"})}});
 const EDIT_EXT=new Set([".js",".cjs",".mjs",".json",".html",".htm",".css",".md",".txt",".sh",".env",".yml",".yaml",".xml",".sql",".conf",".ini",".log"]);
 function editableFile(p){const ext=path.extname(p).toLowerCase(),base=path.basename(p);return EDIT_EXT.has(ext)||base.startsWith(".env")||["Dockerfile","Makefile"].includes(base)}
 app.get("/api/editor/read",async(req,res)=>{try{const p=filePath(req.query.path),st=await fs.promises.stat(p);if(!st.isFile())return res.status(400).json({error:"not_file"});if(!editableFile(p))return res.status(415).json({error:"unsupported_file"});if(st.size>2*1024*1024)return res.status(413).json({error:"file_too_large"});const content=await fs.promises.readFile(p,"utf8");res.set("Cache-Control","no-store").json({path:p,name:path.basename(p),size:st.size,modified:st.mtime.toISOString(),content})}catch(e){fileError(res,e)}});
