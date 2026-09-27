@@ -68,3 +68,17 @@ Abrir `http://127.0.0.1:3100`.
 - Creación manual de backup con confirmación, CSRF y auditoría.
 - Helper privilegiado de lista cerrada; no acepta rutas ni comandos enviados por el navegador.
 - Sin restauración, borrado ni sobrescritura de respaldos desde la web.
+
+
+## V2.0.0 — Release estable
+- Dashboard y monitoreo integral del servidor.
+- Control seguro de PM2, Nginx, MySQL, backups, Cloudflare/DDNS, SSL y actualizaciones APT.
+- Git/Deploy para panel, producción y pruebas.
+- Terminal web autenticada y Explorador de Archivos V2.
+- Editor de código con guardado atómico y auditoría.
+- Logs centralizados y Alertas V2 para recursos, servicios, backups, SSL y actualizaciones de seguridad.
+- Almacenamiento V2 con proyectos administrados bajo /srv/proyectos.
+- Sistema V2 con systemd, procesos, red, MySQL, tareas, timeline, diagnóstico, acciones rápidas, ajustes y preparación multi-servidor.
+- Login protegido, sesiones, Google Authenticator 2FA, códigos de recuperación, CSRF y auditoría de acciones sensibles.
+
+**Estado:** V2 cerrada y estable.
