@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+import json, subprocess
+
+def run(args):
+    try:
+        p=subprocess.run(args,capture_output=True,text=True,timeout=8)
+        return p.stdout
+    except Exception:
+        return ""
+
+scan=run(["/usr/sbin/smartctl","--scan-open","-j"])
+try:
+    devices=json.loads(scan).get("devices",[])
+except Exception:
+    devices=[]
+
+out=[]
+for item in devices:
+    dev=item.get("name")
+    if not dev: continue
+    raw=run(["/usr/sbin/smartctl","-a","-j",dev])
+    try:
+        d=json.loads(raw)
+    except Exception:
+        continue
+    passed=d.get("smart_status",{}).get("passed")
+    temp=d.get("temperature",{}).get("current")
+    poh=d.get("power_on_time",{}).get("hours")
+    cap=d.get("user_capacity",{}).get("bytes")
+    model=d.get("model_name") or d.get("product") or d.get("model_family") or "Disco"
+    serial=d.get("serial_number") or ""
+    ata={str(x.get("id")):x for x in d.get("ata_smart_attributes",{}).get("table",[])}
+    def rawv(i):
+        v=ata.get(str(i),{}).get("raw",{}).get("value")
+        return v if isinstance(v,(int,float)) else None
+    reallocated=rawv(5); pending=rawv(197); uncorrectable=rawv(198)
+    warnings=sum(int(v or 0)>0 for v in (reallocated,pending,uncorrectable))
+    if passed is False:
+        status="critical"
+    elif warnings:
+        status="warning"
+    elif passed is True:
+        status="good"
+    else:
+        status="unknown"
+    out.append({"device":dev,"model":model,"serial":serial,"bytes":cap,"temperature":temp,"powerOnHours":poh,"reallocated":reallocated,"pending":pending,"uncorrectable":uncorrectable,"status":status})
+print(json.dumps({"disks":out},ensure_ascii=False))
