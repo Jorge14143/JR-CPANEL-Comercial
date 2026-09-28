@@ -115,3 +115,7 @@ html{scrollbar-color:#243a45 #071219}::selection{background:rgba(255,210,28,.22)
 }
 @media(max-width:1000px){.jr-meter-value{top:166px!important}}
 @media(max-width:720px){.jr-meter-value{top:166px!important}}
+
+/* Speedtest: agujas estables; el valor real se fija al terminar la medición */
+.jr-needle.sweeping{animation:none!important}
+.jr-meter.upload .jr-needle.sweeping{animation:none!important}
