@@ -99,3 +99,19 @@ html{scrollbar-color:#243a45 #071219}::selection{background:rgba(255,210,28,.22)
 @keyframes jrNeedleSweepLive{0%{transform:rotate(-118deg)}22%{transform:rotate(-42deg)}48%{transform:rotate(102deg)}70%{transform:rotate(34deg)}100%{transform:rotate(-118deg)}}
 @media(max-width:1000px){.jr-dial{height:260px;margin-bottom:0}.jr-meter-value{top:210px}}
 @media(max-width:720px){.jr-dial{height:270px;margin-bottom:0}}
+
+/* Geometría final de velocímetros */
+.jr-meter-value{top:166px!important;z-index:5}
+.jr-meter-value strong{font-size:34px!important}
+.jr-meter-value span{display:block;margin-top:5px}
+.jr-needle{transform:rotate(-210deg)}
+@keyframes jrNeedleSweepLive{
+  0%{transform:rotate(-210deg)}
+  18%{transform:rotate(-150deg)}
+  42%{transform:rotate(-55deg)}
+  64%{transform:rotate(22deg)}
+  82%{transform:rotate(-35deg)}
+  100%{transform:rotate(-210deg)}
+}
+@media(max-width:1000px){.jr-meter-value{top:166px!important}}
+@media(max-width:720px){.jr-meter-value{top:166px!important}}
