@@ -1,0 +1,1 @@
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-disk-health
