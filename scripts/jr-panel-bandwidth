@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ACTION="${1:-status}"
+MBPS="${2:-}"
+IFACE="$(ip route show default 2>/dev/null | awk '/^default/ {for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')"
+
+[ -n "$IFACE" ] || { echo "No se encontró interfaz por defecto" >&2; exit 2; }
+command -v wondershaper >/dev/null 2>&1 || { echo "wondershaper no instalado" >&2; exit 3; }
+
+case "$ACTION" in
+  status)
+    OUT="$(wondershaper "$IFACE" 2>&1 || true)"
+    echo "interface=$IFACE"
+    if printf '%s' "$OUT" | grep -Eq 'qdisc (htb|ingress)|class htb'; then
+      echo "active=yes"
+    else
+      echo "active=no"
+    fi
+    printf '%s\n' "$OUT" | head -80
+    ;;
+  set)
+    [[ "$MBPS" =~ ^[0-9]+$ ]] || { echo "Mbps inválidos" >&2; exit 4; }
+    (( MBPS >= 1 && MBPS <= 10000 )) || { echo "Mbps fuera de rango" >&2; exit 4; }
+    KBPS=$((MBPS * 1000))
+    wondershaper -c -a "$IFACE" >/dev/null 2>&1 || true
+    wondershaper -a "$IFACE" -d "$KBPS" -u "$KBPS"
+    echo "interface=$IFACE"
+    echo "active=yes"
+    echo "download_mbps=$MBPS"
+    echo "upload_mbps=$MBPS"
+    ;;
+  clear)
+    wondershaper -c -a "$IFACE"
+    echo "interface=$IFACE"
+    echo "active=no"
+    ;;
+  *)
+    echo "Acción inválida" >&2
+    exit 5
+    ;;
+esac
