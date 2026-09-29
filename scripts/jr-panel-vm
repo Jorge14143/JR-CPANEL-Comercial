@@ -1,0 +1,57 @@
+#!/bin/sh
+set -eu
+
+ACTION="${1:-list}"
+VM="${2:-}"
+
+need_vm() {
+  [ -n "$VM" ] || { echo "missing_vm" >&2; exit 2; }
+  printf '%s' "$VM" | grep -Eq '^[A-Za-z0-9._-]+$' || { echo "invalid_vm" >&2; exit 2; }
+  /usr/bin/virsh dominfo "$VM" >/dev/null 2>&1 || { echo "vm_not_found" >&2; exit 3; }
+}
+
+case "$ACTION" in
+  list)
+    /usr/bin/virsh list --all --name | sed '/^$/d'
+    ;;
+  info)
+    need_vm
+    /usr/bin/virsh dominfo "$VM"
+    ;;
+  domstats)
+    need_vm
+    /usr/bin/virsh domstats "$VM" --balloon --vcpu --block --interface
+    ;;
+  ip)
+    need_vm
+    /usr/bin/virsh domifaddr "$VM" --source lease 2>/dev/null || true
+    ;;
+  start)
+    need_vm
+    exec /usr/bin/virsh start "$VM"
+    ;;
+  shutdown)
+    need_vm
+    exec /usr/bin/virsh shutdown "$VM"
+    ;;
+  reboot)
+    need_vm
+    exec /usr/bin/virsh reboot "$VM"
+    ;;
+  destroy)
+    need_vm
+    exec /usr/bin/virsh destroy "$VM"
+    ;;
+  autostart-on)
+    need_vm
+    exec /usr/bin/virsh autostart "$VM"
+    ;;
+  autostart-off)
+    need_vm
+    exec /usr/bin/virsh autostart --disable "$VM"
+    ;;
+  *)
+    echo "invalid_action" >&2
+    exit 2
+    ;;
+esac
