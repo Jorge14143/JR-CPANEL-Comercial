@@ -42,9 +42,28 @@ case "$ACTION" in
     need_vm
     /usr/bin/virsh domstats "$VM" --balloon --vcpu --block --interface
     ;;
+  vnc)
+    need_vm
+    /usr/bin/virsh vncdisplay "$VM"
+    ;;
   ip)
     need_vm
-    /usr/bin/virsh domifaddr "$VM" --source lease 2>/dev/null || true
+
+    # Primero intenta leases administrados por libvirt (NAT/default).
+    OUT=$(/usr/bin/virsh domifaddr "$VM" --source lease 2>/dev/null || true)
+    printf '%s\n' "$OUT"
+
+    # Las VM conectadas a br0 reciben DHCP directamente del router.
+    # Si libvirt no conoce la IP, buscamos la MAC de la VM en la tabla ARP.
+    if ! printf '%s\n' "$OUT" | /usr/bin/grep -Eq '([0-9]{1,3}\.){3}[0-9]{1,3}/'; then
+      MAC=$(/usr/bin/virsh domiflist "$VM" 2>/dev/null | /usr/bin/awk 'NR>2 && $5 ~ /^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/ {print tolower($5); exit}')
+      if [ -n "$MAC" ]; then
+        IP=$(/usr/sbin/ip neigh show dev br0 2>/dev/null | /usr/bin/awk -v mac="$MAC" 'tolower($3)==mac && $1 ~ /^[0-9]+\./ {print $1; exit}')
+        if [ -n "$IP" ]; then
+          printf ' br0        %s    ipv4         %s/24\n' "$MAC" "$IP"
+        fi
+      fi
+    fi
     ;;
   iso-import)
     SRC="${2:-}"
@@ -52,7 +71,7 @@ case "$ACTION" in
     case "$SRC" in /tmp/jr-vm-*.iso) ;; *) echo "invalid_iso_source" >&2; exit 2 ;; esac
     [ -f "$SRC" ] || { echo "iso_source_missing" >&2; exit 2; }
     printf '%s' "$NAME" | grep -Eqi '^[A-Za-z0-9._ -]+\.iso$' || { echo "invalid_iso_name" >&2; exit 2; }
-    /usr/bin/install -o root -g libvirt -m 0640 "$SRC" "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME"
+    /usr/bin/install -o root -g libvirt -m 0640 "$SRC" "/var/lib/libvirt/images/$NAME"
     /usr/bin/rm -f "$SRC"
     ;;
   iso-download)
@@ -60,18 +79,18 @@ case "$ACTION" in
     NAME="${3:-}"
     case "$URL" in https://*) ;; *) echo "only_https_allowed" >&2; exit 2 ;; esac
     printf '%s' "$NAME" | grep -Eqi '^[A-Za-z0-9._ -]+\.iso$' || { echo "invalid_iso_name" >&2; exit 2; }
-    /usr/bin/curl --proto '=https' --proto-redir '=https' -fL --retry 3 --connect-timeout 20 -o "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME.part" "$URL"
-    /usr/bin/mv "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME.part" "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME"
-    /usr/bin/chown root:libvirt "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME"
-    /usr/bin/chmod 0640 "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME"
-    echo "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME"
+    /usr/bin/curl --proto '=https' --proto-redir '=https' -fL --retry 3 --connect-timeout 20 -o "/var/lib/libvirt/images/$NAME.part" "$URL"
+    /usr/bin/mv "/var/lib/libvirt/images/$NAME.part" "/var/lib/libvirt/images/$NAME"
+    /usr/bin/chown root:libvirt "/var/lib/libvirt/images/$NAME"
+    /usr/bin/chmod 0640 "/var/lib/libvirt/images/$NAME"
+    echo "/var/lib/libvirt/images/$NAME"
     ;;
   iso-list)
-    /usr/bin/find /srv/proyectos/jr-server-panel/sistemas-operativos -maxdepth 1 -type f -iname '*.iso' -printf '%p\n' 2>/dev/null | /usr/bin/sort
+    /usr/bin/find /srv/proyectos/jr-server-panel/sistemas-operativos -maxdepth 3 -type f -iname '*.iso' -printf '%p\n' 2>/dev/null | /usr/bin/sort
     ;;
   iso-delete)
     ISO="${2:-}"
-    case "$ISO" in /srv/proyectos/jr-server-panel/sistemas-operativos/*.iso) ;; *) echo "invalid_iso_path" >&2; exit 2 ;; esac
+    case "$ISO" in /var/lib/libvirt/images/*.iso) ;; *) echo "invalid_iso_path" >&2; exit 2 ;; esac
     [ -f "$ISO" ] || { echo "iso_not_found" >&2; exit 3; }
     /usr/bin/rm -- "$ISO"
     ;;
@@ -95,8 +114,49 @@ case "$ACTION" in
     [ -f "$ISO" ] || { echo "iso_not_found" >&2; exit 2; }
     case "$ISO" in /srv/proyectos/jr-server-panel/sistemas-operativos/*.iso) ;; *) echo "invalid_iso_path" >&2; exit 2 ;; esac
     /usr/bin/virsh dominfo "$NAME" >/dev/null 2>&1 && { echo "vm_exists" >&2; exit 3; } || true
-    /usr/bin/virt-install --name "$NAME" --vcpus "$VCPUS" --memory "$RAM" --disk "path=$DEV,format=raw,bus=virtio" --cdrom "$ISO" --network network=default,model=virtio --graphics vnc,listen=127.0.0.1 --video virtio --noautoconsole --boot cdrom,hd
+    /usr/bin/virt-install --name "$NAME" --vcpus "$VCPUS" --memory "$RAM" --disk "path=$DEV,format=raw,bus=virtio" --cdrom "$ISO" --network bridge=br0,model=virtio --graphics vnc,listen=127.0.0.1 --video virtio --osinfo ubuntu25.10 --noautoconsole --boot cdrom,hd
     [ "$AUTOSTART" = "on" ] && /usr/bin/virsh autostart "$NAME" || true
+    ;;
+  console-sync)
+    TMP=$(/usr/bin/mktemp)
+    /usr/bin/virsh list --name | /usr/bin/sed '/^$/d' | while IFS= read -r N; do
+      printf '%s' "$N" | /usr/bin/grep -Eq '^[A-Za-z0-9._-]+$' || continue
+      DISPLAY=$(/usr/bin/virsh vncdisplay "$N" 2>/dev/null || true)
+      [ -n "$DISPLAY" ] || continue
+      NUM=${DISPLAY##*:}
+      printf '%s' "$NUM" | /usr/bin/grep -Eq '^[0-9]+$' || continue
+      PORT=$((5900 + NUM))
+      printf '%s: 127.0.0.1:%s\n' "$N" "$PORT" >> "$TMP"
+    done
+    /usr/bin/install -o root -g jorge -m 0640 "$TMP" /etc/jr-server-panel/vnc-tokens
+    /usr/bin/rm -f "$TMP"
+    /usr/bin/cat /etc/jr-server-panel/vnc-tokens
+    ;;
+  eject-iso)
+    need_vm
+
+
+    /usr/bin/virsh domblklist "$VM" --details 2>/dev/null |
+    /usr/bin/awk '$2=="cdrom" && $4!="-" {print $3}' |
+    while IFS= read -r TARGET; do
+      [ -n "$TARGET" ] || continue
+
+      # Quita el medio de la VM activa, si está encendida.
+      STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
+      case "$STATE" in
+        running|paused|"in shutdown")
+          /usr/bin/virsh change-media "$VM" "$TARGET" --eject --live 2>/dev/null || true
+          ;;
+      esac
+
+      # Y también de la configuración persistente.
+      /usr/bin/virsh change-media "$VM" "$TARGET" --eject --config 2>/dev/null || true
+
+      printf 'ejected:%s\n' "$TARGET"
+    done
+
+    # Acción idempotente: si ya no hay ISO, no se considera error.
+    exit 0
     ;;
   start) need_vm; exec /usr/bin/virsh start "$VM" ;;
   shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;

@@ -40,7 +40,27 @@ async function systemControl(action){return execFileAsync("sudo",["-n","/usr/loc
 app.get("/api/system/control",async(req,res)=>{try{const {stdout}=await systemControl("status");res.set("Cache-Control","no-store").json({maintenance:/maintenance=on/.test(stdout)})}catch{res.status(500).json({error:"system_control_unavailable"})}});
 app.post("/api/system/control/:action",async(req,res)=>{if(!csrf(req,res))return;const action=String(req.params.action||"");if(!["maintenance-on","maintenance-off","reboot","poweroff"].includes(action))return res.status(400).json({error:"invalid_action"});append(AUDIT,{action:"system_"+action,ip:ip(req),user:req.session.user});if(action==="reboot"||action==="poweroff"){res.json({ok:true,action});setTimeout(()=>execFile("sudo",["-n","/usr/local/sbin/jr-panel-system-control",action],()=>{}),500);return}try{const {stdout}=await systemControl(action);res.json({ok:true,action,maintenance:/maintenance=on/.test(stdout)})}catch(e){res.status(500).json({error:"system_control_failed",output:String(e.stderr||"").trim().slice(-1000)})}});
 
-async function vmAction(action,...values){const args=["-n","/usr/local/sbin/jr-panel-vm",action,...values.filter(x=>x!==undefined&&x!==null).map(String)];return execFileAsync("sudo",args,{timeout:action==="create"?120000:15000,maxBuffer:1024*1024})}
+async function vmAction(action,...values){
+  const args=["-n","/usr/local/sbin/jr-panel-vm",action,...values.filter(x=>x!==undefined&&x!==null).map(String)];
+  const result=await execFileAsync("sudo",args,{
+    timeout:action==="create"?120000:15000,
+    maxBuffer:1024*1024
+  });
+
+  if(["create","start","shutdown","reboot","destroy"].includes(action)){
+    try{
+      await execFileAsync(
+        "sudo",
+        ["-n","/usr/local/sbin/jr-panel-vm","console-sync"],
+        {timeout:15000,maxBuffer:1024*1024}
+      );
+    }catch(e){
+      console.error("VM console-sync failed:",String(e.stderr||e.message||e));
+    }
+  }
+
+  return result;
+}
 function vmInfoParse(raw){const out={};for(const line of String(raw||"").split("\n")){const i=line.indexOf(":");if(i>0)out[line.slice(0,i).trim().toLowerCase()]=line.slice(i+1).trim()}return out}
 function vmIpParse(raw){const ips=[];for(const line of String(raw||"").split("\n")){const m=line.match(/\b((?:\d{1,3}\.){3}\d{1,3})\/\d+\b/);if(m&&!ips.includes(m[1]))ips.push(m[1])}return ips}
 async function vmList(){const {stdout}=await vmAction("list"),names=String(stdout||"").split("\n").map(x=>x.trim()).filter(Boolean);return Promise.all(names.map(async name=>{try{const [{stdout:infoRaw},{stdout:ipRaw}]=await Promise.all([vmAction("info",name),vmAction("ip",name)]),i=vmInfoParse(infoRaw),state=String(i.state||"unknown").toLowerCase();return{name,state,active:/running|paused|pmsuspended|in shutdown/.test(state),autostart:/enable|yes/i.test(i.autostart||""),vcpus:Number(i["cpu(s)"])||0,maxMemoryKiB:Number(String(i["max memory"]||"").match(/\d+/)?.[0])||0,memoryKiB:Number(String(i["used memory"]||"").match(/\d+/)?.[0])||0,ips:vmIpParse(ipRaw)}}catch{return{name,state:"unknown",active:false,autostart:false,vcpus:0,maxMemoryKiB:0,memoryKiB:0,ips:[]}}}))}
@@ -57,7 +77,7 @@ async function vmMonitorStats(v){if(!v.active)return{stats:{cpuPercent:0,memoryB
 app.get("/api/vm-monitor",async(req,res)=>{try{const machines=await vmList(),out=await Promise.all(machines.map(async v=>({...v,...await vmMonitorStats(v)})));res.set("Cache-Control","no-store").json({machines:out,time:new Date().toISOString()})}catch(e){res.status(500).json({error:"vm_monitor_unavailable",output:String(e.stderr||e.message||"").slice(-1000)})}});
 
 app.get("/api/vm",async(req,res)=>{try{const machines=await vmList();res.set("Cache-Control","no-store").json({available:true,count:machines.length,running:machines.filter(x=>x.active).length,machines})}catch(e){res.status(500).json({error:"vm_unavailable",output:String(e.stderr||"").trim().slice(-1000)})}});
-app.post("/api/vm/:name/:action",async(req,res)=>{if(!csrf(req,res))return;const name=String(req.params.name||""),action=String(req.params.action||"");if(!/^[A-Za-z0-9._-]+$/.test(name))return res.status(400).json({error:"invalid_vm"});if(!["start","shutdown","reboot","destroy","autostart-on","autostart-off"].includes(action))return res.status(400).json({error:"invalid_action"});try{const {stdout,stderr}=await vmAction(action,name);append(AUDIT,{action:"vm_"+action,target:name,ip:ip(req),user:req.session.user});res.json({ok:true,name,action,output:(stdout+"\n"+stderr).trim()})}catch(e){append(AUDIT,{action:"vm_"+action+"_failed",target:name,ip:ip(req),user:req.session.user});res.status(500).json({error:"vm_action_failed",output:String(e.stderr||e.stdout||"").trim().slice(-1000)})}});
+app.post("/api/vm/:name/:action",async(req,res)=>{if(!csrf(req,res))return;const name=String(req.params.name||""),action=String(req.params.action||"");if(!/^[A-Za-z0-9._-]+$/.test(name))return res.status(400).json({error:"invalid_vm"});if(!["start","shutdown","reboot","destroy","autostart-on","autostart-off","eject-iso"].includes(action))return res.status(400).json({error:"invalid_action"});try{const {stdout,stderr}=await vmAction(action,name);append(AUDIT,{action:"vm_"+action,target:name,ip:ip(req),user:req.session.user});res.json({ok:true,name,action,output:(stdout+"\n"+stderr).trim()})}catch(e){append(AUDIT,{action:"vm_"+action+"_failed",target:name,ip:ip(req),user:req.session.user});res.status(500).json({error:"vm_action_failed",output:String(e.stderr||e.stdout||"").trim().slice(-1000)})}});
 
 app.get("/api/pm2/:name/logs",async(req,res)=>{const names=await pm2Names(),name=String(req.params.name||"");if(!names.has(name))return res.status(404).json({error:"process_not_found"});const out=await cmd("pm2",["logs",name,"--nostream","--lines","80","--raw"]);const clean=out.replace(/\\x1B(?:[@-Z\\-_]|\\[[0-?]*[ -/]*[@-~])/g,"");res.set("Cache-Control","no-store").json({name,lines:clean.split("\n").slice(-160)})});
 app.post("/api/pm2/:name/:action",async(req,res)=>{if(!csrf(req,res))return;const name=String(req.params.name||""),action=String(req.params.action||"");if(!["start","restart","stop"].includes(action))return res.status(400).json({error:"invalid_action"});const names=await pm2Names();if(!names.has(name))return res.status(404).json({error:"process_not_found"});try{await execFileAsync("pm2",[action,name],{timeout:15000,maxBuffer:1024*1024});append(AUDIT,{action:"pm2_"+action,target:name,ip:ip(req),user:req.session.user});res.json({ok:true,action,name})}catch(e){append(AUDIT,{action:"pm2_"+action+"_failed",target:name,ip:ip(req),user:req.session.user});res.status(500).json({error:"pm2_action_failed"})}});
