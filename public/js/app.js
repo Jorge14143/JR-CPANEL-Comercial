@@ -55,7 +55,7 @@ $("vmIsoDownloadBtn")?.addEventListener("click",async()=>{
 $("vmIsoDeleteBtn")?.addEventListener("click",async()=>{
   const iso=$("vmCreateIso"),value=iso?.value,progress=$("vmIsoUploadProgress"),btn=$("vmIsoDeleteBtn");
   if(!value){progress.textContent="Seleccioná primero una ISO.";return}
-  if(!value.startsWith("/var/lib/libvirt/images/")){progress.textContent="Solo se pueden eliminar ISO administradas por libvirt.";return}
+  if(!value.startsWith("/srv/proyectos/jr-server-panel/sistemas-operativos/")){progress.textContent="Solo se pueden eliminar ISO de Sistemas Operativos.";return}
   const name=value.split("/").pop();
   if(!confirm("¿Eliminar definitivamente "+name+"?"))return;
   btn.disabled=true;progress.textContent="Eliminando "+name+"...";
