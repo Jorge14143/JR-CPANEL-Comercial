@@ -38,6 +38,34 @@ case "$ACTION" in
     need_vm
     /usr/bin/virsh dominfo "$VM"
     ;;
+  uptime)
+    need_vm
+
+    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
+
+    if [ "$STATE" != "running" ]; then
+      echo 0
+      exit 0
+    fi
+
+    PIDFILE="/run/libvirt/qemu/${VM}.pid"
+
+    if [ ! -r "$PIDFILE" ]; then
+      echo 0
+      exit 0
+    fi
+
+    PID=$(/usr/bin/cat "$PIDFILE" 2>/dev/null || true)
+
+    if ! printf '%s' "$PID" | /usr/bin/grep -Eq '^[0-9]+$'; then
+      echo 0
+      exit 0
+    fi
+
+    /usr/bin/ps -p "$PID" -o etimes= 2>/dev/null |
+      /usr/bin/tr -d ' '
+    ;;
+
   mac)
     need_vm
     /usr/bin/virsh domiflist "$VM" 2>/dev/null |
