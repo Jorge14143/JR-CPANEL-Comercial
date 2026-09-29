@@ -2,51 +2,101 @@
 set -eu
 ACTION="${1:-list}"
 VM="${2:-}"
-need_vm(){ [ -n "$VM" ] || { echo missing_vm >&2; exit 2; }; printf '%s' "$VM"|grep -Eq '^[A-Za-z0-9._-]+$'||{ echo invalid_vm >&2; exit 2; }; /usr/bin/virsh dominfo "$VM" >/dev/null 2>&1||{ echo vm_not_found >&2; exit 3; }; }
-slot_device(){ case "${1:-}" in 1) echo /dev/sdb1;;2) echo /dev/sdb2;;3) echo /dev/sdb3;;4) echo /dev/sdb4;;*) echo invalid_slot >&2;exit 2;;esac; }
-slot_used_by(){ DEV="$1"; for N in $(/usr/bin/virsh list --all --name|sed '/^$/d');do if /usr/bin/virsh dumpxml "$N" 2>/dev/null|/usr/bin/grep -Fq "dev='$DEV'";then echo "$N";return 0;fi;done;return 1; }
+
+need_vm() {
+  [ -n "$VM" ] || { echo "missing_vm" >&2; exit 2; }
+  printf '%s' "$VM" | grep -Eq '^[A-Za-z0-9._-]+$' || { echo "invalid_vm" >&2; exit 2; }
+  /usr/bin/virsh dominfo "$VM" >/dev/null 2>&1 || { echo "vm_not_found" >&2; exit 3; }
+}
+
+slot_device() {
+  case "${1:-}" in
+    1) echo /dev/sdb1 ;;
+    2) echo /dev/sdb2 ;;
+    3) echo /dev/sdb3 ;;
+    4) echo /dev/sdb4 ;;
+    *) echo "invalid_slot" >&2; exit 2 ;;
+  esac
+}
+
+slot_used_by() {
+  DEV="$1"
+  for N in $(/usr/bin/virsh list --all --name | sed '/^$/d'); do
+    if /usr/bin/virsh dumpxml "$N" 2>/dev/null | /usr/bin/grep -Fq "dev='$DEV'"; then
+      echo "$N"
+      return 0
+    fi
+  done
+  return 1
+}
+
 case "$ACTION" in
- list) /usr/bin/virsh list --all --name|sed '/^$/d';;
- info) need_vm;/usr/bin/virsh dominfo "$VM";;
- domstats) need_vm;/usr/bin/virsh domstats "$VM" --balloon --vcpu --block --interface;;
- ip) need_vm;/usr/bin/virsh domifaddr "$VM" --source lease 2>/dev/null||true;;
- iso-import)
-  SRC="${2:-}";NAME="${3:-}";case "$SRC" in /tmp/jr-vm-*.iso);;*) echo invalid_iso_source >&2;exit 2;;esac
-  [ -f "$SRC" ]||{ echo iso_source_missing >&2;exit 2; };printf '%s' "$NAME"|grep -Eqi '^[A-Za-z0-9._ -]+\.iso$'||{ echo invalid_iso_name >&2;exit 2; }
-  /usr/bin/install -o root -g libvirt -m 0640 "$SRC" "/var/lib/libvirt/images/$NAME";/usr/bin/rm -f "$SRC";;
- iso-download)
-  URL="${2:-}";NAME="${3:-}"
-  case "$URL" in https://*) ;; *) echo only_https_allowed >&2;exit 2;; esac
-  printf '%s' "$NAME"|grep -Eqi '^[A-Za-z0-9._ -]+\.iso
- iso-list) /usr/bin/find /var/lib/libvirt/images /home/jorge -maxdepth 3 -type f -iname '*.iso' -printf '%p\n' 2>/dev/null|/usr/bin/sort;;
- slots) for S in 1 2 3 4;do DEV=$(slot_device "$S");USED=$(slot_used_by "$DEV"||true);printf '%s\t%s\t%s\n' "$S" "$DEV" "$USED";done;;
- create)
-  NAME="${2:-}";VCPUS="${3:-}";RAM="${4:-}";SLOT="${5:-}";ISO="${6:-}";AUTOSTART="${7:-off}"
-  printf '%s' "$NAME"|grep -Eq '^[A-Za-z0-9._-]{1,64}$'||{ echo invalid_name >&2;exit 2; };printf '%s' "$VCPUS"|grep -Eq '^[1-4]$'||{ echo invalid_vcpus >&2;exit 2; };printf '%s' "$RAM"|grep -Eq '^[0-9]+$'||{ echo invalid_ram >&2;exit 2; };[ "$RAM" -ge 512 ]&&[ "$RAM" -le 8192 ]||{ echo invalid_ram >&2;exit 2; }
-  DEV=$(slot_device "$SLOT");[ -b "$DEV" ]||{ echo slot_device_missing >&2;exit 3; };USED=$(slot_used_by "$DEV"||true);[ -z "$USED" ]||{ echo "slot_in_use:$USED" >&2;exit 3; };[ -f "$ISO" ]||{ echo iso_not_found >&2;exit 2; }
-  case "$ISO" in /var/lib/libvirt/images/*.iso|/home/jorge/*.iso|/home/jorge/*/*.iso|/home/jorge/*/*/*.iso);;*) echo invalid_iso_path >&2;exit 2;;esac
-  /usr/bin/virsh dominfo "$NAME" >/dev/null 2>&1&&{ echo vm_exists >&2;exit 3; }||true
-  /usr/bin/virt-install --name "$NAME" --vcpus "$VCPUS" --memory "$RAM" --disk "path=$DEV,format=raw,bus=virtio" --cdrom "$ISO" --network network=default,model=virtio --graphics vnc,listen=127.0.0.1 --video virtio --noautoconsole --boot cdrom,hd
-  [ "$AUTOSTART" = on ]&&/usr/bin/virsh autostart "$NAME"||true;;
- start) need_vm;exec /usr/bin/virsh start "$VM";; shutdown) need_vm;exec /usr/bin/virsh shutdown "$VM";; reboot) need_vm;exec /usr/bin/virsh reboot "$VM";; destroy) need_vm;exec /usr/bin/virsh destroy "$VM";;
- autostart-on) need_vm;exec /usr/bin/virsh autostart "$VM";; autostart-off) need_vm;exec /usr/bin/virsh autostart --disable "$VM";;
- *) echo invalid_action >&2;exit 2;;
-esac
-||{ echo invalid_iso_name >&2;exit 2; }
-  /usr/bin/curl --proto '=https' --proto-redir '=https' -fL --retry 3 --connect-timeout 20 --progress-bar -o "/var/lib/libvirt/images/$NAME.part" "$URL"
-  /usr/bin/mv "/var/lib/libvirt/images/$NAME.part" "/var/lib/libvirt/images/$NAME"
-  /usr/bin/chown root:libvirt "/var/lib/libvirt/images/$NAME";/usr/bin/chmod 0640 "/var/lib/libvirt/images/$NAME";echo "/var/lib/libvirt/images/$NAME";;
- iso-list) /usr/bin/find /var/lib/libvirt/images /home/jorge -maxdepth 3 -type f -iname '*.iso' -printf '%p\n' 2>/dev/null|/usr/bin/sort;;
- slots) for S in 1 2 3 4;do DEV=$(slot_device "$S");USED=$(slot_used_by "$DEV"||true);printf '%s\t%s\t%s\n' "$S" "$DEV" "$USED";done;;
- create)
-  NAME="${2:-}";VCPUS="${3:-}";RAM="${4:-}";SLOT="${5:-}";ISO="${6:-}";AUTOSTART="${7:-off}"
-  printf '%s' "$NAME"|grep -Eq '^[A-Za-z0-9._-]{1,64}$'||{ echo invalid_name >&2;exit 2; };printf '%s' "$VCPUS"|grep -Eq '^[1-4]$'||{ echo invalid_vcpus >&2;exit 2; };printf '%s' "$RAM"|grep -Eq '^[0-9]+$'||{ echo invalid_ram >&2;exit 2; };[ "$RAM" -ge 512 ]&&[ "$RAM" -le 8192 ]||{ echo invalid_ram >&2;exit 2; }
-  DEV=$(slot_device "$SLOT");[ -b "$DEV" ]||{ echo slot_device_missing >&2;exit 3; };USED=$(slot_used_by "$DEV"||true);[ -z "$USED" ]||{ echo "slot_in_use:$USED" >&2;exit 3; };[ -f "$ISO" ]||{ echo iso_not_found >&2;exit 2; }
-  case "$ISO" in /var/lib/libvirt/images/*.iso|/home/jorge/*.iso|/home/jorge/*/*.iso|/home/jorge/*/*/*.iso);;*) echo invalid_iso_path >&2;exit 2;;esac
-  /usr/bin/virsh dominfo "$NAME" >/dev/null 2>&1&&{ echo vm_exists >&2;exit 3; }||true
-  /usr/bin/virt-install --name "$NAME" --vcpus "$VCPUS" --memory "$RAM" --disk "path=$DEV,format=raw,bus=virtio" --cdrom "$ISO" --network network=default,model=virtio --graphics vnc,listen=127.0.0.1 --video virtio --noautoconsole --boot cdrom,hd
-  [ "$AUTOSTART" = on ]&&/usr/bin/virsh autostart "$NAME"||true;;
- start) need_vm;exec /usr/bin/virsh start "$VM";; shutdown) need_vm;exec /usr/bin/virsh shutdown "$VM";; reboot) need_vm;exec /usr/bin/virsh reboot "$VM";; destroy) need_vm;exec /usr/bin/virsh destroy "$VM";;
- autostart-on) need_vm;exec /usr/bin/virsh autostart "$VM";; autostart-off) need_vm;exec /usr/bin/virsh autostart --disable "$VM";;
- *) echo invalid_action >&2;exit 2;;
+  list)
+    /usr/bin/virsh list --all --name | sed '/^$/d'
+    ;;
+  info)
+    need_vm
+    /usr/bin/virsh dominfo "$VM"
+    ;;
+  domstats)
+    need_vm
+    /usr/bin/virsh domstats "$VM" --balloon --vcpu --block --interface
+    ;;
+  ip)
+    need_vm
+    /usr/bin/virsh domifaddr "$VM" --source lease 2>/dev/null || true
+    ;;
+  iso-import)
+    SRC="${2:-}"
+    NAME="${3:-}"
+    case "$SRC" in /tmp/jr-vm-*.iso) ;; *) echo "invalid_iso_source" >&2; exit 2 ;; esac
+    [ -f "$SRC" ] || { echo "iso_source_missing" >&2; exit 2; }
+    printf '%s' "$NAME" | grep -Eqi '^[A-Za-z0-9._ -]+\.iso$' || { echo "invalid_iso_name" >&2; exit 2; }
+    /usr/bin/install -o root -g libvirt -m 0640 "$SRC" "/var/lib/libvirt/images/$NAME"
+    /usr/bin/rm -f "$SRC"
+    ;;
+  iso-download)
+    URL="${2:-}"
+    NAME="${3:-}"
+    case "$URL" in https://*) ;; *) echo "only_https_allowed" >&2; exit 2 ;; esac
+    printf '%s' "$NAME" | grep -Eqi '^[A-Za-z0-9._ -]+\.iso$' || { echo "invalid_iso_name" >&2; exit 2; }
+    /usr/bin/curl --proto '=https' --proto-redir '=https' -fL --retry 3 --connect-timeout 20 -o "/var/lib/libvirt/images/$NAME.part" "$URL"
+    /usr/bin/mv "/var/lib/libvirt/images/$NAME.part" "/var/lib/libvirt/images/$NAME"
+    /usr/bin/chown root:libvirt "/var/lib/libvirt/images/$NAME"
+    /usr/bin/chmod 0640 "/var/lib/libvirt/images/$NAME"
+    echo "/var/lib/libvirt/images/$NAME"
+    ;;
+  iso-list)
+    /usr/bin/find /var/lib/libvirt/images /home/jorge -maxdepth 3 -type f -iname '*.iso' -printf '%p\n' 2>/dev/null | /usr/bin/sort
+    ;;
+  slots)
+    for S in 1 2 3 4; do
+      DEV=$(slot_device "$S")
+      USED=$(slot_used_by "$DEV" || true)
+      printf '%s\t%s\t%s\n' "$S" "$DEV" "$USED"
+    done
+    ;;
+  create)
+    NAME="${2:-}"; VCPUS="${3:-}"; RAM="${4:-}"; SLOT="${5:-}"; ISO="${6:-}"; AUTOSTART="${7:-off}"
+    printf '%s' "$NAME" | grep -Eq '^[A-Za-z0-9._-]{1,64}$' || { echo "invalid_name" >&2; exit 2; }
+    printf '%s' "$VCPUS" | grep -Eq '^[1-4]$' || { echo "invalid_vcpus" >&2; exit 2; }
+    printf '%s' "$RAM" | grep -Eq '^[0-9]+$' || { echo "invalid_ram" >&2; exit 2; }
+    [ "$RAM" -ge 512 ] && [ "$RAM" -le 8192 ] || { echo "invalid_ram" >&2; exit 2; }
+    DEV=$(slot_device "$SLOT")
+    [ -b "$DEV" ] || { echo "slot_device_missing" >&2; exit 3; }
+    USED=$(slot_used_by "$DEV" || true)
+    [ -z "$USED" ] || { echo "slot_in_use:$USED" >&2; exit 3; }
+    [ -f "$ISO" ] || { echo "iso_not_found" >&2; exit 2; }
+    case "$ISO" in /var/lib/libvirt/images/*.iso|/home/jorge/*.iso|/home/jorge/*/*.iso|/home/jorge/*/*/*.iso) ;; *) echo "invalid_iso_path" >&2; exit 2 ;; esac
+    /usr/bin/virsh dominfo "$NAME" >/dev/null 2>&1 && { echo "vm_exists" >&2; exit 3; } || true
+    /usr/bin/virt-install --name "$NAME" --vcpus "$VCPUS" --memory "$RAM" --disk "path=$DEV,format=raw,bus=virtio" --cdrom "$ISO" --network network=default,model=virtio --graphics vnc,listen=127.0.0.1 --video virtio --noautoconsole --boot cdrom,hd
+    [ "$AUTOSTART" = "on" ] && /usr/bin/virsh autostart "$NAME" || true
+    ;;
+  start) need_vm; exec /usr/bin/virsh start "$VM" ;;
+  shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
+  reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
+  destroy) need_vm; exec /usr/bin/virsh destroy "$VM" ;;
+  autostart-on) need_vm; exec /usr/bin/virsh autostart "$VM" ;;
+  autostart-off) need_vm; exec /usr/bin/virsh autostart --disable "$VM" ;;
+  *) echo "invalid_action" >&2; exit 2 ;;
 esac
