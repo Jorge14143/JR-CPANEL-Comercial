@@ -106,3 +106,6 @@ html{scrollbar-color:#243a45 #071219}::selection{background:rgba(255,210,28,.22)
 
 
 .v3-services-detail{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.v3-service-detail{display:grid;gap:6px;max-height:180px;overflow:auto}.v3-service-detail>div{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:8px 9px;border:1px solid #172c36;border-radius:6px;background:#08161d}.v3-service-detail b{font-size:8px}.v3-service-detail small{grid-column:1/-1;color:#607985;font-size:7px}.v3-service-detail em{font-style:normal;font-size:7px;font-weight:900;color:var(--green)}.v3-service-detail em.bad{color:var(--red)}@media(max-width:1250px){.v3-services-detail{grid-template-columns:1fr 1fr}}@media(max-width:700px){.v3-services-detail{grid-template-columns:1fr}}
+
+
+.v3-history{display:grid;grid-template-columns:1fr;gap:10px}.v3-history-chart{height:150px;margin-top:4px}.v3-history-chart canvas{width:100%;height:100%}.v3-history-legend{display:flex;gap:18px;margin-top:8px;color:#607985;font-size:7px}.v3-history-legend b{margin-left:4px;color:#b9d2dd;font:800 8px Consolas,monospace}
