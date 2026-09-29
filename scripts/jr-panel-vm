@@ -69,6 +69,12 @@ case "$ACTION" in
   iso-list)
     /usr/bin/find /var/lib/libvirt/images /home/jorge -maxdepth 3 -type f -iname '*.iso' -printf '%p\n' 2>/dev/null | /usr/bin/sort
     ;;
+  iso-delete)
+    ISO="${2:-}"
+    case "$ISO" in /var/lib/libvirt/images/*.iso) ;; *) echo "invalid_iso_path" >&2; exit 2 ;; esac
+    [ -f "$ISO" ] || { echo "iso_not_found" >&2; exit 3; }
+    /usr/bin/rm -- "$ISO"
+    ;;
   slots)
     for S in 1 2 3 4; do
       DEV=$(slot_device "$S")
