@@ -109,3 +109,6 @@ html{scrollbar-color:#243a45 #071219}::selection{background:rgba(255,210,28,.22)
 
 
 .v3-history{display:grid;grid-template-columns:1fr;gap:10px}.v3-history-chart{height:150px;margin-top:4px}.v3-history-chart canvas{width:100%;height:100%}.v3-history-legend{display:flex;gap:18px;margin-top:8px;color:#607985;font-size:7px}.v3-history-legend b{margin-left:4px;color:#b9d2dd;font:800 8px Consolas,monospace}
+
+
+.v3-anomaly-list{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.v3-anomaly-list>div{padding:9px;border:1px solid #5b4522;border-radius:6px;background:#17140d}.v3-anomaly-list b{display:block;font-size:8px;color:#ffbd38}.v3-anomaly-list small{display:block;margin-top:3px;color:#8e8064;font-size:7px}.v3-anomaly-list .critical{border-color:#71333b;background:#1a0d10}.v3-anomaly-list .critical b{color:#ff6262}.v3-anomaly-list .clear{grid-column:1/-1;border-color:#173a2d;background:#091812}.v3-anomaly-list .clear b{color:var(--green)}@media(max-width:700px){.v3-anomaly-list{grid-template-columns:1fr}}
