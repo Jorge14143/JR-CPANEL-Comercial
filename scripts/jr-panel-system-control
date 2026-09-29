@@ -1,0 +1,38 @@
+#!/bin/sh
+set -eu
+ACTION="${1:-status}"
+IFACE="enp1s0"
+LAN="192.168.1.0/24"
+TAG="jr-panel-maintenance"
+
+rule_exists(){ /usr/sbin/iptables -C OUTPUT "$@" 2>/dev/null; }
+add_rule(){ rule_exists "$@" || /usr/sbin/iptables -I OUTPUT 1 "$@"; }
+del_rule(){ while rule_exists "$@"; do /usr/sbin/iptables -D OUTPUT "$@"; done; }
+
+case "$ACTION" in
+  status)
+    if rule_exists -o "$IFACE" '!' -d "$LAN" -m comment --comment "$TAG" -j REJECT; then
+      echo "maintenance=on"
+    else
+      echo "maintenance=off"
+    fi
+    ;;
+  maintenance-on)
+    add_rule -o "$IFACE" '!' -d "$LAN" -m comment --comment "$TAG" -j REJECT
+    echo "maintenance=on"
+    ;;
+  maintenance-off)
+    del_rule -o "$IFACE" '!' -d "$LAN" -m comment --comment "$TAG" -j REJECT
+    echo "maintenance=off"
+    ;;
+  reboot)
+    exec /usr/sbin/shutdown -r now
+    ;;
+  poweroff)
+    exec /usr/sbin/shutdown -h now
+    ;;
+  *)
+    echo "invalid action" >&2
+    exit 2
+    ;;
+esac
