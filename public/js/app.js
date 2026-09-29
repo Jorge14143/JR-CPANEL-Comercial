@@ -26,7 +26,32 @@ function vmUploadIso(file){if(!file)return;if(!/\.iso$/i.test(file.name)){alert(
 function vmCloseCreate(){if($("vmCreateModal"))$("vmCreateModal").hidden=true}
 $("vmCreateOpen")?.addEventListener("click",vmOpenCreate);
 $("vmIsoUploadBtn")?.addEventListener("click",()=>$("vmIsoUploadInput")?.click());
-$("vmIsoDownloadBtn")?.addEventListener("click",async()=>{const btn=$("vmIsoDownloadBtn"),progress=$("vmIsoUploadProgress"),url=$("vmIsoUrl")?.value.trim();if(!url){progress.textContent="Pegá primero la URL directa de una ISO.";return}if(!/^https:\/\//i.test(url)||!\.iso(?:[?#].*)?$/i.test(url)){progress.textContent="Usá una URL HTTPS directa que termine en .iso";return}btn.disabled=true;progress.textContent="Descargando ISO directamente en el servidor...";try{const r=await fetch("/api/vm/iso-download",{method:"POST",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},body:JSON.stringify({url})}),d=await r.json();if(!r.ok)throw Error(d.output||d.error);progress.textContent="ISO descargada · lista";const ir=await fetch("/api/vm/isos",{cache:"no-store"}),id=await ir.json(),iso=$("vmCreateIso");iso.innerHTML='<option value="">Seleccionar ISO...</option>'+(id.isos||[]).map(x=>`<option value="${esc(x)}">${esc(x.split("/").pop())} · ${esc(x)}</option>`).join("");if(d.iso)iso.value=d.iso}catch(err){progress.textContent="Error: "+err.message}finally{btn.disabled=false}});
+$("vmIsoDownloadBtn")?.addEventListener("click",async()=>{
+  const btn=$("vmIsoDownloadBtn");
+  const progress=$("vmIsoUploadProgress");
+  const url=$("vmIsoUrl")?.value.trim();
+  if(!url){progress.textContent="Pegá primero la URL directa de una ISO.";return}
+  let parsed;
+  try{parsed=new URL(url)}catch{progress.textContent="La URL no es válida.";return}
+  if(parsed.protocol!=="https:"||!parsed.pathname.toLowerCase().endsWith(".iso")){
+    progress.textContent="Usá una URL HTTPS directa que termine en .iso";
+    return;
+  }
+  btn.disabled=true;
+  progress.textContent="Descargando ISO directamente en el servidor...";
+  try{
+    const r=await fetch("/api/vm/iso-download",{method:"POST",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},body:JSON.stringify({url})});
+    const d=await r.json();
+    if(!r.ok)throw Error(d.output||d.error);
+    progress.textContent="ISO descargada · lista";
+    const ir=await fetch("/api/vm/isos",{cache:"no-store"});
+    const id=await ir.json();
+    const iso=$("vmCreateIso");
+    iso.innerHTML='<option value="">Seleccionar ISO...</option>'+(id.isos||[]).map(x=>'<option value="'+esc(x)+'">'+esc(x.split("/").pop())+' · '+esc(x)+'</option>').join("");
+    if(d.iso)iso.value=d.iso;
+  }catch(err){progress.textContent="Error: "+err.message}
+  finally{btn.disabled=false}
+});
 $("vmIsoUploadInput")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(file)vmUploadIso(file);e.target.value=""});
 $("vmCreateClose")?.addEventListener("click",vmCloseCreate);
 $("vmCreateCancel")?.addEventListener("click",vmCloseCreate);
