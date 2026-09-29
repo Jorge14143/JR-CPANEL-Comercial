@@ -309,3 +309,13 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .v3-service-status{display:flex;align-items:center;gap:7px;color:#c8d8e8;font-size:12px}
 .v3-service-status .dot{margin:0!important;box-shadow:0 0 9px rgba(22,219,133,.55)}
 .v3-service-rich>small{min-width:48px;text-align:right}
+
+/* V3 dashboard icon pass - approved mockup */
+.v3-title-icon{display:inline-grid!important;place-items:center;width:24px;height:24px;border-radius:7px;color:#20a9ff!important;background:rgba(18,139,255,.12);font-size:14px;font-weight:900;flex:0 0 24px}
+.v3-ti-process,.v3-ti-services,.v3-ti-backup,.v3-ti-tasks,.v3-ti-logs,.v3-ti-actions,.v3-ti-network{color:#1fa9ff!important}
+.v3-proc-row b{display:flex;align-items:center;gap:9px}
+.v3-proc-icon{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:#113d28;color:#5ae32f;font-style:normal;font-size:9px;box-shadow:inset 0 0 0 1px rgba(90,227,47,.22)}
+.v3-schedule-row{grid-template-columns:26px minmax(0,1fr) auto!important;align-items:center!important}
+.v3-feed-icon{display:grid!important;place-items:center;width:22px!important;height:22px!important;border-radius:6px!important;background:#0c3150!important;color:#8dc7ff!important;font-style:normal!important;font-size:11px!important}
+.v3-active-pill{font-style:normal;font-size:10px;color:#2af09a;background:#073d2d;border:1px solid #096443;border-radius:5px;padding:3px 7px}
+#v3Timeline>div>i:not(.v3-feed-icon){width:8px;height:8px;box-shadow:0 0 8px rgba(32,169,255,.5)}
