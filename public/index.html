@@ -28,7 +28,12 @@
 <div class="v3-panel"><div class="pt"><div><small>SERVICIOS</small><h3>Estado operativo</h3></div><span>AHORA</span></div><div id="services" class="service-list"></div></div>
 <div class="v3-panel v3-network"><div class="pt"><div><small>CONEXIÓN</small><h3>Red del servidor</h3></div><span>ONLINE</span></div><div class="v3-network-row"><span>IP PRIVADA</span><b id="privateIp">--</b></div><div class="v3-network-row"><span>IP PÚBLICA</span><b id="publicIp">--</b></div><div class="v3-network-row"><span>UPTIME</span><b id="uptime">--</b></div><div class="v3-network-row"><span>LOAD</span><b id="loads">-- / -- / --</b></div></div>
 </section>
-<section class="v3-bottom">
+<section class="v3-intelligence">
+<div class="v3-panel"><div class="pt"><div><small>ALERTAS</small><h3>Centro de alertas</h3></div><span id="v3AlertCount">--</span></div><div id="v3Alerts" class="v3-feed"><p>Cargando alertas...</p></div></div>
+<div class="v3-panel"><div class="pt"><div><small>TIMELINE</small><h3>Actividad reciente</h3></div><span>ÚLTIMOS EVENTOS</span></div><div id="v3Timeline" class="v3-feed"><p>Cargando actividad...</p></div></div>
+<div class="v3-panel"><div class="pt"><div><small>DIAGNÓSTICO</small><h3>Comprobaciones</h3></div><span id="v3DiagState">ANALIZANDO</span></div><div id="v3Diagnostics" class="v3-checks"><p>Ejecutando diagnóstico...</p></div></div>
+<div class="v3-panel"><div class="pt"><div><small>BACKUPS</small><h3>Protección de datos</h3></div><span id="v3BackupState">--</span></div><div class="v3-backup-stat"><strong id="v3BackupAge">--</strong><span>desde el último backup</span></div><div class="v3-network-row"><span>ARCHIVOS</span><b id="v3BackupFiles">--</b></div><div class="v3-network-row"><span>ESPACIO</span><b id="v3BackupSize">--</b></div></div>
+</section><section class="v3-bottom">
 <div class="v3-panel v3-quick"><div class="pt"><div><small>CONTROL</small><h3>Acciones rápidas</h3></div><span>ACCESOS</span></div><div><button data-v3go="pm2">◉ PM2</button><button data-v3go="nginx">◆ NGINX</button><button data-v3go="mysql">▰ MYSQL</button><button data-v3go="backups">↻ BACKUPS</button><button data-v3go="logs">≡ LOGS</button><button data-v3go="opsv2">◎ SISTEMA</button></div></div>
 <div class="v3-panel v3-session"><div class="pt"><div><small>SEGURIDAD</small><h3>Sesión actual</h3></div><span>2FA ACTIVO</span></div><div><span>USUARIO</span><b id="sessionUser">JORGE</b></div><div><span>SESIÓN</span><b id="sessionSince">verificando...</b></div><div><span>RECUPERACIÓN</span><b><i id="recoveryLeft">--</i> códigos</b></div><div class="v3-session-actions"><button id="securityDetails">VER ACCESOS</button><button id="logoutAllBtn" class="danger-soft">CERRAR TODAS</button></div></div>
 </section>
