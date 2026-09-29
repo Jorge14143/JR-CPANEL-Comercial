@@ -395,3 +395,15 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .v3-user-dropdown button{width:100%;display:flex;align-items:center;gap:8px;padding:9px 10px;border:0;border-radius:7px;background:transparent;color:#ff7b83;font-size:11px;font-weight:800;text-align:left;cursor:pointer}
 .v3-user-dropdown button:hover{background:rgba(220,45,58,.16);color:#ff9aa0}
 .v3-user-dropdown button:disabled{opacity:.55;cursor:wait}
+
+
+/* V3 — Máquinas Virtuales / KVM */
+#vmPanel{padding:18px!important;min-height:calc(100vh - 135px);background:linear-gradient(145deg,#07192c,#061426 68%,#071a2e)!important;border:1px solid #123e65!important;border-radius:13px!important;color:#f3f8ff!important;box-shadow:0 18px 45px rgba(0,0,0,.18)!important}
+#vmPanel .v2-box{margin-top:16px;background:linear-gradient(145deg,#0b223a,#081a2d)!important;border:1px solid #174b76!important;border-radius:11px!important}
+#vmPanel button{min-height:34px;border-radius:7px;background:#09243d;border:1px solid #1b6395;color:#d9efff;font-weight:800;cursor:pointer}
+#vmPanel button:hover{filter:brightness(1.14);transform:translateY(-1px)}
+.vm-rows{display:grid;gap:9px;padding-top:10px}
+.vm-row{display:grid;grid-template-columns:minmax(230px,1.5fr) 90px 110px 105px minmax(300px,auto);gap:12px;align-items:center;padding:12px 13px;border:1px solid #16486f;border-radius:10px;background:#081b2f}
+.vm-machine{display:flex;align-items:center;gap:11px;min-width:0}.vm-machine>i{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-style:normal;font-size:9px;font-weight:900;border:1px solid #285a7d;background:#0b2b45;color:#8fc8ef}.vm-machine>i.on{color:#36e5a0;border-color:#16875e;background:#073d2c;box-shadow:0 0 14px rgba(30,220,145,.12)}.vm-machine span{min-width:0}.vm-machine b{display:block;color:#edf7ff;font-size:12px}.vm-machine small{display:block;color:#7898b4;font-size:9px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vm-spec small{display:block;color:#6f91ad;font-size:8px;letter-spacing:.6px}.vm-spec b{display:block;color:#dcecf8;font-size:10px;margin-top:4px}.vm-actions{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap}.vm-actions button{min-height:29px!important;padding:0 9px;font-size:8px!important}.vm-actions button.danger{border-color:#8f3540!important;color:#ff7c85!important;background:rgba(180,40,52,.13)!important}.vm-empty{padding:42px 20px;text-align:center;border:1px dashed #1a527d;border-radius:10px;background:#071a2c}.vm-empty b{display:block;color:#d9edff;font-size:14px}.vm-empty span{display:block;color:#7898b4;font-size:10px;margin-top:7px}
+@media(max-width:1100px){.vm-row{grid-template-columns:1fr repeat(3,90px)}.vm-actions{grid-column:1/-1;justify-content:flex-start}}
+@media(max-width:720px){.vm-row{grid-template-columns:1fr 1fr}.vm-machine{grid-column:1/-1}.vm-actions{grid-column:1/-1}}
