@@ -12,3 +12,4 @@ jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm iso-list
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm create *
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm slots
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm iso-import *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm iso-download *
