@@ -52,6 +52,22 @@ $("vmIsoDownloadBtn")?.addEventListener("click",async()=>{
   }catch(err){progress.textContent="Error: "+err.message}
   finally{btn.disabled=false}
 });
+$("vmIsoDeleteBtn")?.addEventListener("click",async()=>{
+  const iso=$("vmCreateIso"),value=iso?.value,progress=$("vmIsoUploadProgress"),btn=$("vmIsoDeleteBtn");
+  if(!value){progress.textContent="Seleccioná primero una ISO.";return}
+  if(!value.startsWith("/var/lib/libvirt/images/")){progress.textContent="Solo se pueden eliminar ISO administradas por libvirt.";return}
+  const name=value.split("/").pop();
+  if(!confirm("¿Eliminar definitivamente "+name+"?"))return;
+  btn.disabled=true;progress.textContent="Eliminando "+name+"...";
+  try{
+    const r=await fetch("/api/vm/iso-delete",{method:"POST",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},body:JSON.stringify({iso:value})});
+    const d=await r.json();if(!r.ok)throw Error(d.output||d.error);
+    const ir=await fetch("/api/vm/isos",{cache:"no-store"}),id=await ir.json();
+    iso.innerHTML='<option value="">Seleccionar ISO...</option>'+(id.isos||[]).map(x=>'<option value="'+esc(x)+'">'+esc(x.split("/").pop())+' · '+esc(x)+'</option>').join("");
+    progress.textContent="ISO eliminada · "+name;
+  }catch(err){progress.textContent="Error: "+err.message}
+  finally{btn.disabled=false}
+});
 $("vmIsoUploadInput")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(file)vmUploadIso(file);e.target.value=""});
 $("vmCreateClose")?.addEventListener("click",vmCloseCreate);
 $("vmCreateCancel")?.addEventListener("click",vmCloseCreate);
