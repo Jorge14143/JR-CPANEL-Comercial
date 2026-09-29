@@ -237,7 +237,7 @@ $("opsV2Content")?.addEventListener("click",async e=>{const set=e.target.closest
 
 /* JR Server Panel V3 */
 function v3Clock(){const n=new Date(),c=$("v3Clock"),g=$("v3Greeting");if(c)c.textContent=n.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});if(g){const h=n.getHours();g.textContent=(h<12?"Buenos días":h<19?"Buenas tardes":"Buenas noches")+" · supervisión general del servidor"}}
-document.querySelector(".v3-quick")?.addEventListener("click",e=>{const b=e.target.closest("[data-v3go]");if(!b)return;const map={pm2:"pm2Nav",nginx:"nginxNav",mysql:"mysqlNav",backups:"backupNav",logs:"logsNav",opsv2:"opsV2Nav"};$(map[b.dataset.v3go])?.click()});
+document.querySelector("#dashboardView")?.addEventListener("click",e=>{const b=e.target.closest("[data-v3go]");if(!b)return;const map={pm2:"pm2Nav",nginx:"nginxNav",mysql:"mysqlNav",backups:"backupNav",logs:"logsNav",opsv2:"opsV2Nav",tasks:"tasksNav",services:"servicesNav",processes:"processesNav",network:"networkNav"};const target=map[b.dataset.v3go];if(target)$(target)?.click()});
 
 let v3RefreshBusy=false;async function v3RefreshAll(){if(v3RefreshBusy)return;v3RefreshBusy=true;try{await Promise.allSettled([v3OperationalRefresh(),v3InfrastructureRefresh(),v3ServersRefresh(),v3DevOpsRefresh(),v3CriticalServicesRefresh(),v3HistoryRefresh(),v3AnomalyRefresh(),v3IncidentRefresh()])}finally{v3RefreshBusy=false}}
 function v3TimeAgo(value){const t=Date.parse(value),m=Math.max(0,Math.round((Date.now()-t)/60000));if(!Number.isFinite(m))return"--";if(m<1)return"ahora";if(m<60)return"hace "+m+" min";const h=Math.round(m/60);return h<48?"hace "+h+" h":"hace "+Math.round(h/24)+" d"}
