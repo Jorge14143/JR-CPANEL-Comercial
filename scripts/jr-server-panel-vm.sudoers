@@ -1,0 +1,10 @@
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm list
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm info *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm domstats *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm ip *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm start *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm shutdown *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm reboot *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm destroy *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm autostart-on *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm autostart-off *
