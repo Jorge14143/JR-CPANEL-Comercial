@@ -207,3 +207,58 @@ main{margin-left:205px;padding:0 14px 22px}
 .v3-module-box{border:1px solid #143f66;border-radius:10px;background:#091d33;padding:18px}.v3-module-box h3{margin:0 0 15px}.v3-kv{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.v3-kv span{border:1px solid #153a5d;background:#08192c;border-radius:8px;padding:13px;color:#91abc5}.v3-kv b{float:right;color:#eff7ff}.v3-module-action{margin-top:12px;border:1px solid #1689ee;background:#0874e8;color:#fff;border-radius:7px;padding:10px 15px}.v3-module-loading,.v3-module-error{padding:28px;border:1px solid #153d61;background:#081a2d;border-radius:10px}
 .v3-module-content .ops-card{background:#0a2037;border-color:#16476f;border-radius:8px}.v3-module-content pre{background:#06131f;border:1px solid #153a5c;border-radius:8px;color:#bcd1e6}.v3-module-content .jr-speed{border-color:#174b78;background:#081b30}.v3-module-content .v2-notice{background:#0a2037;border-color:#17466f}
 @media(max-width:900px){.v3-module-cards{grid-template-columns:repeat(2,1fr)}.v3-kv{grid-template-columns:1fr}}
+
+/* =========================================================
+   JR SERVER PANEL V3 — FULL MODULE VISUAL REFRESH
+   Unifica paneles heredados V2 con el dashboard V3.
+   ========================================================= */
+:root{
+ --v3-bg:#061426;--v3-card:#0a2038;--v3-card2:#0b2743;--v3-line:#164c78;
+ --v3-blue:#1595ff;--v3-cyan:#23c7ff;--v3-green:#18d995;--v3-purple:#7d45ff;
+ --v3-orange:#ff861b;--v3-yellow:#ffc21a;--v3-text:#f3f8ff;--v3-muted:#8da9c4;
+}
+main>section:not(#dashboardView){background:linear-gradient(145deg,#07192c 0%,#061426 65%,#071a2e 100%)!important;border:1px solid #123e65!important;border-radius:13px!important;box-shadow:0 18px 45px rgba(0,0,0,.18)!important;color:var(--v3-text)!important}
+main>section:not(#dashboardView) h2{font-size:21px!important;letter-spacing:.2px!important;color:var(--v3-text)!important}
+main>section:not(#dashboardView) h3{font-size:14px!important;color:var(--v3-text)!important}
+main>section:not(#dashboardView) .eyebrow,main>section:not(#dashboardView) .kicker{color:#42b8ff!important;letter-spacing:2px!important}
+main>section:not(#dashboardView) button{border-radius:7px!important;min-height:34px!important;font-weight:700!important;transition:.18s ease!important}
+main>section:not(#dashboardView) button:hover{transform:translateY(-1px);filter:brightness(1.12)}
+.panel-head,.module-head,.section-head{border-bottom-color:#174568!important}
+.pm2-card,.mysql-card,.nginx-card,.backup-card,.security-card,.git-card,.log-card,.ops-card,.stat-card,.metric-card{
+ background:linear-gradient(145deg,#0b223a,#081a2d)!important;
+ border-color:#174b76!important;border-radius:11px!important;
+ box-shadow:inset 0 1px rgba(255,255,255,.025),0 7px 22px rgba(0,0,0,.1)!important
+}
+#pm2Panel>div:not(.panel-head),#mysqlPanel>div:not(.panel-head),#nginxPanel>div:not(.panel-head),
+#backupPanel>div:not(.panel-head),#gitDeployPanel>div:not(.panel-head),#logsPanel>div:not(.panel-head),
+#systemSecurityPanel>div:not(.panel-head),#terminalPanel>div:not(.panel-head){
+ border-color:#16486f!important
+}
+#pm2Panel strong,#mysqlPanel strong,#nginxPanel strong,#backupPanel strong,#gitDeployPanel strong,#systemSecurityPanel strong{font-size:15px!important}
+#pm2Panel small,#mysqlPanel small,#nginxPanel small,#backupPanel small,#gitDeployPanel small,#logsPanel small,#systemSecurityPanel small{color:var(--v3-muted)!important}
+#pm2Panel .pm2-card:nth-child(3n+1),#mysqlPanel .stat-card:nth-child(3n+1){border-top:2px solid var(--v3-blue)!important}
+#pm2Panel .pm2-card:nth-child(3n+2),#mysqlPanel .stat-card:nth-child(3n+2){border-top:2px solid var(--v3-purple)!important}
+#pm2Panel .pm2-card:nth-child(3n),#mysqlPanel .stat-card:nth-child(3n){border-top:2px solid var(--v3-green)!important}
+table{border-collapse:separate!important;border-spacing:0!important}
+th{background:#0b2946!important;color:#8fb2d2!important;font-size:10px!important;text-transform:uppercase!important;letter-spacing:.6px!important}
+td{font-size:11px!important;color:#d7e7f6!important;border-bottom-color:#153b5c!important}
+tbody tr:hover td{background:#0c2945!important}
+pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #17415f!important;border-radius:9px!important;color:#c9e2f6!important}
+#terminalPanel .terminal-wrap,#terminalPanel .xterm,#terminalPanel .xterm-viewport{background:#030b11!important}
+#networkPanel button,.jr-speed button{background:#0b2843!important;border-color:#1c6da7!important;color:#d7edff!important}
+.jr-speed .speed-card,.jr-speed .result-card{background:linear-gradient(145deg,#0a2138,#071a2d)!important;border-color:#17517d!important;border-radius:11px!important}
+.jr-speed .speed-card:nth-of-type(2){border-color:#0d8b71!important}
+#backupPanel button,#gitDeployPanel button,#nginxPanel button,#pm2Panel button,#systemSecurityPanel button{background:#09243d!important;border:1px solid #1b5b89!important;color:#d9eeff!important}
+#backupPanel button[class*="primary"],#backupPanel .primary,#gitDeployPanel .primary{background:linear-gradient(135deg,#087cf0,#095fc7)!important;border-color:#168fff!important;color:#fff!important}
+#systemSecurityPanel .ok,#mysqlPanel .ok,#nginxPanel .ok,#backupPanel .ok{color:#20e49c!important}
+#logsPanel>div,#systemSecurityPanel>div,#gitDeployPanel>div,#backupPanel>div{border-radius:10px!important}
+#logsPanel pre{min-height:120px!important;padding:14px!important}
+#systemSecurityPanel pre{padding:15px!important;line-height:1.55!important}
+#gitDeployPanel pre{padding:15px!important}
+#mysqlPanel,#nginxPanel,#pm2Panel,#backupPanel,#gitDeployPanel,#terminalPanel,#logsPanel,#systemSecurityPanel{padding:18px!important}
+#mysqlPanel>div:first-child,#nginxPanel>div:first-child,#pm2Panel>div:first-child,#backupPanel>div:first-child,#gitDeployPanel>div:first-child,#terminalPanel>div:first-child,#logsPanel>div:first-child,#systemSecurityPanel>div:first-child{margin-bottom:16px!important}
+#mysqlPanel [class*="grid"],#nginxPanel [class*="grid"],#backupPanel [class*="grid"],#systemSecurityPanel [class*="grid"]{gap:14px!important}
+.status-ok,.badge-ok,.online{box-shadow:0 0 14px rgba(24,217,149,.2)}
+@media(min-width:1200px){
+ #pm2Panel,#mysqlPanel,#nginxPanel,#backupPanel,#gitDeployPanel,#logsPanel,#systemSecurityPanel{min-height:calc(100vh - 135px)}
+}
