@@ -330,3 +330,26 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .v3-proc-row:nth-child(3) .v3-proc-icon{background:#073f31;color:#1ee39b}
 .v3-proc-row:nth-child(4) .v3-proc-icon{background:#40141a;color:#ff5b61}
 .v3-proc-row:nth-child(5) .v3-proc-icon{background:#172d49;color:#a8c8ef}
+
+/* V3 colorful icon language selected for dashboard */
+.v3-color-icon{width:32px;height:32px;border-radius:10px;display:inline-grid;place-items:center;position:relative;overflow:hidden;box-sizing:border-box;border:1px solid rgba(255,255,255,.12);box-shadow:0 7px 18px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.18);vertical-align:middle}
+.v3-color-icon:before{content:"";position:absolute;inset:2px;border-radius:8px;background:linear-gradient(145deg,rgba(255,255,255,.2),transparent 48%)}
+.v3-color-icon span{position:relative;z-index:1;font-size:10px;line-height:1;font-weight:900;letter-spacing:-.2px;color:#fff;text-shadow:0 1px 2px #0008}
+.v3-icon-cpu{background:linear-gradient(145deg,#167bff,#00c2ff)}.v3-icon-cpu:after{content:"";position:absolute;width:13px;height:13px;border:2px solid #fff8;border-radius:3px;box-shadow:0 0 0 3px #075fb766}
+.v3-icon-ram{background:linear-gradient(145deg,#7b38e8,#b96cff)}.v3-icon-disk{background:linear-gradient(145deg,#00a96f,#43d879)}.v3-icon-net,.v3-icon-wifi{background:linear-gradient(145deg,#ff6a22,#ffb329)}
+.v3-icon-services{background:linear-gradient(145deg,#1c8cff,#1ed2d7)}.v3-icon-backup{background:linear-gradient(145deg,#176dff,#4c9cff)}
+.v3-icon-nginx{background:linear-gradient(145deg,#00a54f,#12d66b)}.v3-icon-mysql,.v3-icon-database{background:linear-gradient(145deg,#126c9b,#f29111)}
+.v3-icon-fail2ban{background:linear-gradient(145deg,#ff355d,#ff7b32)}.v3-icon-ddns{background:linear-gradient(145deg,#f48120,#ffbd36)}
+.v3-icon-pm2{background:linear-gradient(145deg,#24a148,#77d34f)}.v3-icon-ssh{background:linear-gradient(145deg,#4a5568,#111827)}.v3-icon-ufw{background:linear-gradient(145deg,#e83b28,#ff8b1f)}
+.v3-icon-project{background:linear-gradient(145deg,#6f42c1,#d15cff)}.v3-icon-server{background:linear-gradient(145deg,#1683b9,#23c9c9)}.v3-icon-tasks{background:linear-gradient(145deg,#2168d9,#6aa7ff)}.v3-icon-generic{background:linear-gradient(145deg,#334a68,#617995)}
+.v3-metric-icon{background:transparent!important;border:0!important;box-shadow:none!important;width:38px!important;height:38px!important;display:grid!important;place-items:center}
+.v3-metric-icon .v3-color-icon{width:36px;height:36px}
+.v3-title-icon .v3-color-icon{width:28px;height:28px;border-radius:8px}.v3-title-icon .v3-color-icon span{font-size:8px}
+.v3-service-rich>.v3-color-icon{width:26px;height:26px;border-radius:7px}.v3-service-rich>.v3-color-icon span{font-size:8px}
+.v3-proc-icon{background:transparent!important;box-shadow:none!important;padding:0!important;width:25px!important;height:25px!important}
+.v3-proc-icon .v3-color-icon{width:24px;height:24px;border-radius:7px}.v3-proc-icon .v3-color-icon span{font-size:7px}
+.v3-feed-icon{background:transparent!important;width:28px!important;height:28px!important}.v3-feed-icon .v3-color-icon{width:26px;height:26px;border-radius:7px}.v3-feed-icon .v3-color-icon span{font-size:7px}
+/* log severity language: INFO green, WARN amber, ERROR red */
+#v3Timeline .log-info,.v3-log-info{background:rgba(22,163,74,.13)!important;border-color:rgba(34,197,94,.34)!important}
+#v3Timeline .log-warn,.v3-log-warn{background:rgba(245,158,11,.13)!important;border-color:rgba(245,158,11,.38)!important}
+#v3Timeline .log-error,.v3-log-error{background:rgba(220,38,38,.15)!important;border-color:rgba(239,68,68,.4)!important}
