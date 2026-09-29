@@ -319,3 +319,14 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .v3-feed-icon{display:grid!important;place-items:center;width:22px!important;height:22px!important;border-radius:6px!important;background:#0c3150!important;color:#8dc7ff!important;font-style:normal!important;font-size:11px!important}
 .v3-active-pill{font-style:normal;font-size:10px;color:#2af09a;background:#073d2d;border:1px solid #096443;border-radius:5px;padding:3px 7px}
 #v3Timeline>div>i:not(.v3-feed-icon){width:8px;height:8px;box-shadow:0 0 8px rgba(32,169,255,.5)}
+
+/* V3 iconography fidelity pass */
+.v3-title-icon{width:28px!important;height:28px!important;background:transparent!important;border-radius:0!important}
+.v3-title-icon svg{width:22px;height:22px;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 5px rgba(31,169,255,.32))}
+.v3-ti-network svg{width:25px;height:25px}
+.v3-proc-icon{width:23px!important;height:23px!important;padding:3px;box-sizing:border-box}
+.v3-proc-icon svg{width:100%;height:100%;display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.v3-proc-row:nth-child(2) .v3-proc-icon{background:#082f54;color:#27a9ff}
+.v3-proc-row:nth-child(3) .v3-proc-icon{background:#073f31;color:#1ee39b}
+.v3-proc-row:nth-child(4) .v3-proc-icon{background:#40141a;color:#ff5b61}
+.v3-proc-row:nth-child(5) .v3-proc-icon{background:#172d49;color:#a8c8ef}
