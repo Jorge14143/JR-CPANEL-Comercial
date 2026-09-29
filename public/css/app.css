@@ -353,3 +353,15 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 #v3Timeline .log-info,.v3-log-info{background:rgba(22,163,74,.13)!important;border-color:rgba(34,197,94,.34)!important}
 #v3Timeline .log-warn,.v3-log-warn{background:rgba(245,158,11,.13)!important;border-color:rgba(245,158,11,.38)!important}
 #v3Timeline .log-error,.v3-log-error{background:rgba(220,38,38,.15)!important;border-color:rgba(239,68,68,.4)!important}
+
+/* V3 dashboard: more breathing room for processes, services and real backup history */
+.v3-dashboard-grid>.v3-panel:nth-child(-n+3){min-height:310px;padding-bottom:16px}
+.v3-dashboard-grid>.v3-panel:nth-child(1) .service-list,.v3-dashboard-grid>.v3-panel:nth-child(2) .service-list{padding-top:11px;padding-bottom:12px}
+.v3-dashboard-grid>.v3-panel:nth-child(1) .service-row,.v3-dashboard-grid>.v3-panel:nth-child(2) .service-row{min-height:44px;padding-top:8px;padding-bottom:8px}
+.v3-backup-recent{padding:0 14px 12px}
+.v3-backup-recent>p{color:#718aa3;font-size:10px}
+.v3-backup-row{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:10px;min-height:43px;border-bottom:1px solid #12314d}
+.v3-backup-row:last-child{border-bottom:0}.v3-backup-row .v3-color-icon{width:27px;height:27px;border-radius:7px}.v3-backup-row .v3-color-icon span{font-size:7px}
+.v3-backup-row span{min-width:0}.v3-backup-row b{display:block;color:#dceafa;font-size:10px}.v3-backup-row small{display:block;color:#718aa3;font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v3-backup-row em{font-style:normal;font-size:8px;font-weight:800;border-radius:999px;padding:4px 7px}.v3-backup-row em.ok{color:#45e6a1;background:rgba(20,190,120,.12);border:1px solid rgba(45,220,145,.24)}.v3-backup-row em.missing{color:#ff7474;background:rgba(220,50,60,.11);border:1px solid rgba(240,70,80,.22)}.v3-backup-row em.neutral{color:#8eb4d9;background:rgba(70,130,190,.1);border:1px solid rgba(80,150,210,.2)}
+@media(max-width:900px){.v3-dashboard-grid>.v3-panel:nth-child(-n+3){min-height:280px}}
