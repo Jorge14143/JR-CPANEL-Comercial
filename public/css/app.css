@@ -298,3 +298,14 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .side nav a.on .nav-ico{color:#fff!important}
 .side nav a.on .nav-ico svg{filter:drop-shadow(0 0 6px rgba(255,255,255,.28))}
 .side nav a:hover .nav-ico{color:#e4f4ff!important;transform:scale(1.05)}
+
+/* V3 dashboard service identity icons */
+.v3-service-rich{display:grid!important;grid-template-columns:30px minmax(90px,1fr) auto auto!important;align-items:center!important;gap:10px!important}
+.v3-service-icon{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:11px;font-weight:900;background:#092b45;border:1px solid #1267a1;color:#22a8ff;box-shadow:inset 0 0 12px rgba(34,168,255,.08)}
+.v3-service-icon.v3-svc-nginx{color:#00df84;border-color:#08794d;background:#063326}
+.v3-service-icon.v3-svc-mysql{color:#21aaff;border-color:#116c9e;background:#072b3d;font-size:9px}
+.v3-service-icon.v3-svc-fail2ban{color:#ff6547;border-color:#8e3929;background:#351714}
+.v3-service-icon.v3-svc-ddns{color:#f59d2a;border-color:#8b571a;background:#32230e}
+.v3-service-status{display:flex;align-items:center;gap:7px;color:#c8d8e8;font-size:12px}
+.v3-service-status .dot{margin:0!important;box-shadow:0 0 9px rgba(22,219,133,.55)}
+.v3-service-rich>small{min-width:48px;text-align:right}
