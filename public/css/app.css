@@ -385,3 +385,13 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .v3-user{position:relative}
 .v3-logout-btn{display:grid;place-items:center;width:28px;height:28px;margin-left:8px;padding:0;border:1px solid rgba(255,90,100,.38);border-radius:8px;background:rgba(190,35,48,.12);color:#ff6d78;font-size:17px;font-weight:900;cursor:pointer;transition:.18s ease}
 .v3-logout-btn:hover{background:rgba(220,40,55,.25);border-color:#ff6570;box-shadow:0 0 14px rgba(255,70,85,.18);transform:translateX(1px)}
+
+/* V3 user session dropdown */
+.v3-user{position:relative;cursor:pointer;user-select:none}
+.v3-user-caret{margin-left:7px;color:#6fa8ce;font-size:10px;transition:.18s}
+.v3-user:hover .v3-user-caret{color:#fff}
+.v3-user-dropdown{position:absolute;right:0;top:calc(100% + 8px);z-index:1200;min-width:158px;padding:6px;border:1px solid #174c70;border-radius:10px;background:#071b2d;box-shadow:0 14px 35px rgba(0,0,0,.45)}
+.v3-user-dropdown[hidden]{display:none!important}
+.v3-user-dropdown button{width:100%;display:flex;align-items:center;gap:8px;padding:9px 10px;border:0;border-radius:7px;background:transparent;color:#ff7b83;font-size:11px;font-weight:800;text-align:left;cursor:pointer}
+.v3-user-dropdown button:hover{background:rgba(220,45,58,.16);color:#ff9aa0}
+.v3-user-dropdown button:disabled{opacity:.55;cursor:wait}
