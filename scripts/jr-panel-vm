@@ -52,7 +52,7 @@ case "$ACTION" in
     case "$SRC" in /tmp/jr-vm-*.iso) ;; *) echo "invalid_iso_source" >&2; exit 2 ;; esac
     [ -f "$SRC" ] || { echo "iso_source_missing" >&2; exit 2; }
     printf '%s' "$NAME" | grep -Eqi '^[A-Za-z0-9._ -]+\.iso$' || { echo "invalid_iso_name" >&2; exit 2; }
-    /usr/bin/install -o root -g libvirt -m 0640 "$SRC" "/var/lib/libvirt/images/$NAME"
+    /usr/bin/install -o root -g libvirt -m 0640 "$SRC" "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME"
     /usr/bin/rm -f "$SRC"
     ;;
   iso-download)
@@ -60,18 +60,18 @@ case "$ACTION" in
     NAME="${3:-}"
     case "$URL" in https://*) ;; *) echo "only_https_allowed" >&2; exit 2 ;; esac
     printf '%s' "$NAME" | grep -Eqi '^[A-Za-z0-9._ -]+\.iso$' || { echo "invalid_iso_name" >&2; exit 2; }
-    /usr/bin/curl --proto '=https' --proto-redir '=https' -fL --retry 3 --connect-timeout 20 -o "/var/lib/libvirt/images/$NAME.part" "$URL"
-    /usr/bin/mv "/var/lib/libvirt/images/$NAME.part" "/var/lib/libvirt/images/$NAME"
-    /usr/bin/chown root:libvirt "/var/lib/libvirt/images/$NAME"
-    /usr/bin/chmod 0640 "/var/lib/libvirt/images/$NAME"
-    echo "/var/lib/libvirt/images/$NAME"
+    /usr/bin/curl --proto '=https' --proto-redir '=https' -fL --retry 3 --connect-timeout 20 -o "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME.part" "$URL"
+    /usr/bin/mv "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME.part" "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME"
+    /usr/bin/chown root:libvirt "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME"
+    /usr/bin/chmod 0640 "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME"
+    echo "/srv/proyectos/jr-server-panel/sistemas-operativos/$NAME"
     ;;
   iso-list)
-    /usr/bin/find /var/lib/libvirt/images /home/jorge -maxdepth 3 -type f -iname '*.iso' -printf '%p\n' 2>/dev/null | /usr/bin/sort
+    /usr/bin/find /srv/proyectos/jr-server-panel/sistemas-operativos -maxdepth 1 -type f -iname '*.iso' -printf '%p\n' 2>/dev/null | /usr/bin/sort
     ;;
   iso-delete)
     ISO="${2:-}"
-    case "$ISO" in /var/lib/libvirt/images/*.iso) ;; *) echo "invalid_iso_path" >&2; exit 2 ;; esac
+    case "$ISO" in /srv/proyectos/jr-server-panel/sistemas-operativos/*.iso) ;; *) echo "invalid_iso_path" >&2; exit 2 ;; esac
     [ -f "$ISO" ] || { echo "iso_not_found" >&2; exit 3; }
     /usr/bin/rm -- "$ISO"
     ;;
@@ -93,7 +93,7 @@ case "$ACTION" in
     USED=$(slot_used_by "$DEV" || true)
     [ -z "$USED" ] || { echo "slot_in_use:$USED" >&2; exit 3; }
     [ -f "$ISO" ] || { echo "iso_not_found" >&2; exit 2; }
-    case "$ISO" in /var/lib/libvirt/images/*.iso|/home/jorge/*.iso|/home/jorge/*/*.iso|/home/jorge/*/*/*.iso) ;; *) echo "invalid_iso_path" >&2; exit 2 ;; esac
+    case "$ISO" in /srv/proyectos/jr-server-panel/sistemas-operativos/*.iso) ;; *) echo "invalid_iso_path" >&2; exit 2 ;; esac
     /usr/bin/virsh dominfo "$NAME" >/dev/null 2>&1 && { echo "vm_exists" >&2; exit 3; } || true
     /usr/bin/virt-install --name "$NAME" --vcpus "$VCPUS" --memory "$RAM" --disk "path=$DEV,format=raw,bus=virtio" --cdrom "$ISO" --network network=default,model=virtio --graphics vnc,listen=127.0.0.1 --video virtio --noautoconsole --boot cdrom,hd
     [ "$AUTOSTART" = "on" ] && /usr/bin/virsh autostart "$NAME" || true
