@@ -115,3 +115,25 @@ html{scrollbar-color:#243a45 #071219}::selection{background:rgba(255,210,28,.22)
 
 
 .v3-incidents .v3-panel{border-color:#20333c}.v3-incidents .v3-panel.incident-critical{border-color:#71333b;box-shadow:inset 0 0 20px #3b111622}.v3-incident-summary{display:flex;align-items:baseline;gap:8px;padding:6px 0 10px}.v3-incident-summary strong{font:900 25px Consolas,monospace;color:#d9eef6}.v3-incident-summary span{font-size:7px;color:#607985}.v3-incident-list{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}.v3-incident-list>div{padding:8px;border:1px solid #51411f;border-radius:6px;background:#15130d}.v3-incident-list>div.critical{border-color:#71333b;background:#190d10}.v3-incident-list>div.ok{grid-column:1/-1;border-color:#173a2d;background:#091812}.v3-incident-list b{display:block;font-size:8px}.v3-incident-list small{display:block;margin-top:3px;color:#728691;font-size:7px}.v3-incident-list em{font-style:normal;font-size:6px;color:#8ca2ac}@media(max-width:700px){.v3-incident-list{grid-template-columns:1fr}}
+
+
+/* V3 · cierre responsive para móviles angostos */
+@media(max-width:480px){
+  .v3-dashboard{gap:10px}
+  .v3-command{padding-bottom:10px}
+  .v3-command h2{font-size:19px;line-height:1.15}
+  .v3-panel,.v3-metric{padding:13px}
+  .v3-metric{min-height:108px}
+  .v3-metric strong{font-size:24px}
+  .v3-metric.net strong{font-size:15px;overflow-wrap:anywhere}
+  .v3-metric .bar{left:13px;right:13px;bottom:11px}
+  .v3-quick>div:last-child,.v3-session-actions{grid-template-columns:1fr}
+  .v3-checks{grid-template-columns:1fr}
+  .v3-panel .pt{align-items:flex-start;gap:8px}
+  .v3-panel .pt>span{text-align:right}
+  .v3-history-legend{flex-wrap:wrap;gap:8px 14px}
+  .v3-project{grid-template-columns:minmax(0,1fr) auto}
+  .v3-service-detail>div{grid-template-columns:minmax(0,1fr) auto}
+  .v3-feed b,.v3-feed small,.v3-project b,.v3-project small,.v3-service-detail b,.v3-service-detail small{overflow-wrap:anywhere}
+  .v3-chart canvas{height:145px}
+}
