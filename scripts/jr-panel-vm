@@ -38,6 +38,12 @@ case "$ACTION" in
     need_vm
     /usr/bin/virsh dominfo "$VM"
     ;;
+  mac)
+    need_vm
+    /usr/bin/virsh domiflist "$VM" 2>/dev/null |
+      /usr/bin/awk 'NR>2 && $5 ~ /^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/ {print tolower($5); exit}'
+    ;;
+
   domstats)
     need_vm
     /usr/bin/virsh domstats "$VM" --balloon --vcpu --block --interface
