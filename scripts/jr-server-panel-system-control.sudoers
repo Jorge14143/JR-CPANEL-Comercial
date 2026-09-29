@@ -1,0 +1,5 @@
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-system-control status
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-system-control maintenance-on
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-system-control maintenance-off
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-system-control reboot
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-system-control poweroff
