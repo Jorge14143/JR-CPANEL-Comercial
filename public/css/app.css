@@ -365,3 +365,9 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .v3-backup-row span{min-width:0}.v3-backup-row b{display:block;color:#dceafa;font-size:10px}.v3-backup-row small{display:block;color:#718aa3;font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v3-backup-row em{font-style:normal;font-size:8px;font-weight:800;border-radius:999px;padding:4px 7px}.v3-backup-row em.ok{color:#45e6a1;background:rgba(20,190,120,.12);border:1px solid rgba(45,220,145,.24)}.v3-backup-row em.missing{color:#ff7474;background:rgba(220,50,60,.11);border:1px solid rgba(240,70,80,.22)}.v3-backup-row em.neutral{color:#8eb4d9;background:rgba(70,130,190,.1);border:1px solid rgba(80,150,210,.2)}
 @media(max-width:900px){.v3-dashboard-grid>.v3-panel:nth-child(-n+3){min-height:280px}}
+
+/* V3 dashboard: first row tall enough to show complete system services */
+.v3-dashboard-grid>.v3-panel:nth-child(-n+3){min-height:365px}
+.v3-dashboard-grid>.v3-panel:nth-child(2) .service-list{max-height:none!important;overflow:visible!important}
+.v3-dashboard-grid>.v3-panel:nth-child(1) .service-list{max-height:none!important}
+@media(max-width:900px){.v3-dashboard-grid>.v3-panel:nth-child(-n+3){min-height:330px}}
