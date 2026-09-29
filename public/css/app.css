@@ -290,3 +290,11 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 #storagePanel th{background:#0b2946!important;color:#91b4d4!important}
 #storagePanel td{color:#d8e9f7!important;border-bottom-color:#153b5c!important}
 #storagePanel tbody tr:hover td{background:#0c2945!important}
+
+/* V3 sidebar SVG icon system */
+.side nav a{display:flex!important;align-items:center!important;gap:11px!important}
+.side nav a .nav-ico{width:25px!important;height:25px!important;min-width:25px!important;display:grid!important;place-items:center!important;color:#a9c9e8!important}
+.side nav a .nav-ico svg{width:21px!important;height:21px!important;display:block!important;filter:drop-shadow(0 0 5px rgba(63,165,255,.12))}
+.side nav a.on .nav-ico{color:#fff!important}
+.side nav a.on .nav-ico svg{filter:drop-shadow(0 0 6px rgba(255,255,255,.28))}
+.side nav a:hover .nav-ico{color:#e4f4ff!important;transform:scale(1.05)}
