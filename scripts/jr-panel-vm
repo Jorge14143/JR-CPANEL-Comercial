@@ -26,6 +26,137 @@ case "$ACTION" in
     need_vm
     /usr/bin/virsh domifaddr "$VM" --source lease 2>/dev/null || true
     ;;
+  iso-list)
+    /usr/bin/find /var/lib/libvirt/images /home/jorge -maxdepth 3 -type f \( -iname '*.iso' \) -printf '%p\n' 2>/dev/null | /usr/bin/sort
+    ;;
+  create)
+    NAME="${2:-}"; VCPUS="${3:-}"; RAM="${4:-}"; DISK="${5:-}"; ISO="${6:-}"; AUTOSTART="${7:-off}"
+    printf '%s' "$NAME" | grep -Eq '^[A-Za-z0-9._-]{1,64}
+    exec /usr/bin/virsh start "$VM"
+    ;;
+  shutdown)
+    need_vm
+    exec /usr/bin/virsh shutdown "$VM"
+    ;;
+  reboot)
+    need_vm
+    exec /usr/bin/virsh reboot "$VM"
+    ;;
+  destroy)
+    need_vm
+    exec /usr/bin/virsh destroy "$VM"
+    ;;
+  autostart-on)
+    need_vm
+    exec /usr/bin/virsh autostart "$VM"
+    ;;
+  autostart-off)
+    need_vm
+    exec /usr/bin/virsh autostart --disable "$VM"
+    ;;
+  *)
+    echo "invalid_action" >&2
+    exit 2
+    ;;
+esac
+ || { echo "invalid_name" >&2; exit 2; }
+    printf '%s' "$VCPUS" | grep -Eq '^[1-4]
+    exec /usr/bin/virsh start "$VM"
+    ;;
+  shutdown)
+    need_vm
+    exec /usr/bin/virsh shutdown "$VM"
+    ;;
+  reboot)
+    need_vm
+    exec /usr/bin/virsh reboot "$VM"
+    ;;
+  destroy)
+    need_vm
+    exec /usr/bin/virsh destroy "$VM"
+    ;;
+  autostart-on)
+    need_vm
+    exec /usr/bin/virsh autostart "$VM"
+    ;;
+  autostart-off)
+    need_vm
+    exec /usr/bin/virsh autostart --disable "$VM"
+    ;;
+  *)
+    echo "invalid_action" >&2
+    exit 2
+    ;;
+esac
+ || { echo "invalid_vcpus" >&2; exit 2; }
+    printf '%s' "$RAM" | grep -Eq '^[0-9]+
+    exec /usr/bin/virsh start "$VM"
+    ;;
+  shutdown)
+    need_vm
+    exec /usr/bin/virsh shutdown "$VM"
+    ;;
+  reboot)
+    need_vm
+    exec /usr/bin/virsh reboot "$VM"
+    ;;
+  destroy)
+    need_vm
+    exec /usr/bin/virsh destroy "$VM"
+    ;;
+  autostart-on)
+    need_vm
+    exec /usr/bin/virsh autostart "$VM"
+    ;;
+  autostart-off)
+    need_vm
+    exec /usr/bin/virsh autostart --disable "$VM"
+    ;;
+  *)
+    echo "invalid_action" >&2
+    exit 2
+    ;;
+esac
+ || { echo "invalid_ram" >&2; exit 2; }
+    [ "$RAM" -ge 512 ] && [ "$RAM" -le 8192 ] || { echo "invalid_ram" >&2; exit 2; }
+    printf '%s' "$DISK" | grep -Eq '^[0-9]+
+    exec /usr/bin/virsh start "$VM"
+    ;;
+  shutdown)
+    need_vm
+    exec /usr/bin/virsh shutdown "$VM"
+    ;;
+  reboot)
+    need_vm
+    exec /usr/bin/virsh reboot "$VM"
+    ;;
+  destroy)
+    need_vm
+    exec /usr/bin/virsh destroy "$VM"
+    ;;
+  autostart-on)
+    need_vm
+    exec /usr/bin/virsh autostart "$VM"
+    ;;
+  autostart-off)
+    need_vm
+    exec /usr/bin/virsh autostart --disable "$VM"
+    ;;
+  *)
+    echo "invalid_action" >&2
+    exit 2
+    ;;
+esac
+ || { echo "invalid_disk" >&2; exit 2; }
+    [ "$DISK" -ge 5 ] && [ "$DISK" -le 200 ] || { echo "invalid_disk" >&2; exit 2; }
+    [ -f "$ISO" ] || { echo "iso_not_found" >&2; exit 2; }
+    case "$ISO" in /var/lib/libvirt/images/*.iso|/home/jorge/*.iso|/home/jorge/*/*.iso|/home/jorge/*/*/*.iso) ;; *) echo "invalid_iso_path" >&2; exit 2;; esac
+    /usr/bin/virsh dominfo "$NAME" >/dev/null 2>&1 && { echo "vm_exists" >&2; exit 3; }
+    DISKPATH="/var/lib/libvirt/images/$NAME.qcow2"
+    [ ! -e "$DISKPATH" ] || { echo "disk_exists" >&2; exit 3; }
+    /usr/bin/virt-install --name "$NAME" --vcpus "$VCPUS" --memory "$RAM" --disk "path=$DISKPATH,size=$DISK,format=qcow2,bus=virtio" --cdrom "$ISO" --network network=default,model=virtio --graphics vnc,listen=127.0.0.1 --video virtio --noautoconsole --boot cdrom,hd
+    if [ "$AUTOSTART" = "on" ]; then /usr/bin/virsh autostart "$NAME"; fi
+    ;;
   start)
     need_vm
     exec /usr/bin/virsh start "$VM"
