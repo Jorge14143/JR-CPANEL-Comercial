@@ -8,3 +8,5 @@ jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm reboot *
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm destroy *
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm autostart-on *
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm autostart-off *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm iso-list
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm create *
