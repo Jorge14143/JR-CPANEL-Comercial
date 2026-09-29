@@ -26,6 +26,7 @@ function vmUploadIso(file){if(!file)return;if(!/\.iso$/i.test(file.name)){alert(
 function vmCloseCreate(){if($("vmCreateModal"))$("vmCreateModal").hidden=true}
 $("vmCreateOpen")?.addEventListener("click",vmOpenCreate);
 $("vmIsoUploadBtn")?.addEventListener("click",()=>$("vmIsoUploadInput")?.click());
+$("vmIsoDownloadBtn")?.addEventListener("click",async()=>{const btn=$("vmIsoDownloadBtn"),progress=$("vmIsoUploadProgress");if(!confirm("¿Descargar Ubuntu Server 26.04.1 LTS directamente al servidor?"))return;btn.disabled=true;progress.textContent="Descargando Ubuntu desde Internet...";try{const r=await fetch("/api/vm/iso-download",{method:"POST",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},body:JSON.stringify({preset:"ubuntu-26.04.1-server"})}),d=await r.json();if(!r.ok)throw Error(d.output||d.error);progress.textContent="ISO descargada · lista";const ir=await fetch("/api/vm/isos",{cache:"no-store"}),id=await ir.json(),iso=$("vmCreateIso");iso.innerHTML='<option value="">Seleccionar ISO...</option>'+(id.isos||[]).map(x=>`<option value="${esc(x)}">${esc(x.split("/").pop())} · ${esc(x)}</option>`).join("");if(d.iso)iso.value=d.iso}catch(err){progress.textContent="Error al descargar ISO";alert(err.message)}finally{btn.disabled=false}});
 $("vmIsoUploadInput")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(file)vmUploadIso(file);e.target.value=""});
 $("vmCreateClose")?.addEventListener("click",vmCloseCreate);
 $("vmCreateCancel")?.addEventListener("click",vmCloseCreate);
