@@ -371,3 +371,12 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .v3-dashboard-grid>.v3-panel:nth-child(2) .service-list{max-height:none!important;overflow:visible!important}
 .v3-dashboard-grid>.v3-panel:nth-child(1) .service-list{max-height:none!important}
 @media(max-width:900px){.v3-dashboard-grid>.v3-panel:nth-child(-n+3){min-height:330px}}
+
+/* V3 server controls */
+.v3-system-controls{display:flex;align-items:center;gap:6px}
+.v3-system-controls button{height:32px;border:1px solid #18537b;border-radius:8px;background:#09253b;color:#a9d8f7;font-size:10px;font-weight:800;padding:0 10px;cursor:pointer;box-shadow:inset 0 1px rgba(255,255,255,.04)}
+.v3-system-controls button:hover{filter:brightness(1.18)}
+.v3-system-controls #maintenanceBtn.active{color:#ffd55b;border-color:#b77b18;background:rgba(180,112,10,.18)}
+.v3-system-controls .restart{width:34px;padding:0;color:#ffd35b;border-color:#8a681b;background:rgba(157,112,9,.14);font-size:16px}
+.v3-system-controls .shutdown{width:34px;padding:0;color:#ff7777;border-color:#8e3038;background:rgba(174,34,45,.14);font-size:16px}
+@media(max-width:1100px){.v3-system-controls #maintenanceBtn{font-size:0;width:34px;padding:0}.v3-system-controls #maintenanceBtn:before{content:"🌐";font-size:13px}.v3-system-controls #maintenanceBtn.active:before{content:"🔒"}}
