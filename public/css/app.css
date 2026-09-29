@@ -380,3 +380,8 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .v3-system-controls .restart{width:34px;padding:0;color:#ffd35b;border-color:#8a681b;background:rgba(157,112,9,.14);font-size:16px}
 .v3-system-controls .shutdown{width:34px;padding:0;color:#ff7777;border-color:#8e3038;background:rgba(174,34,45,.14);font-size:16px}
 @media(max-width:1100px){.v3-system-controls #maintenanceBtn{font-size:0;width:34px;padding:0}.v3-system-controls #maintenanceBtn:before{content:"🌐";font-size:13px}.v3-system-controls #maintenanceBtn.active:before{content:"🔒"}}
+
+/* V3 logout in user badge */
+.v3-user{position:relative}
+.v3-logout-btn{display:grid;place-items:center;width:28px;height:28px;margin-left:8px;padding:0;border:1px solid rgba(255,90,100,.38);border-radius:8px;background:rgba(190,35,48,.12);color:#ff6d78;font-size:17px;font-weight:900;cursor:pointer;transition:.18s ease}
+.v3-logout-btn:hover{background:rgba(220,40,55,.25);border-color:#ff6570;box-shadow:0 0 14px rgba(255,70,85,.18);transform:translateX(1px)}
