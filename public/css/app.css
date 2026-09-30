@@ -605,3 +605,13 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 #storageView .disk-partition span{font-size:11px!important}
 #storageView .storage-location-row b{font-size:12px}
 #storageView .storage-location-row span{font-size:11px}
+
+/* Almacenamiento V2: escala legible definitiva */
+#view-storage .disk-health-card small,#view-storage .disk-health-card span{font-size:14px!important}
+#view-storage .disk-health-card b{font-size:18px!important;line-height:1.35}
+#view-storage .disk-health-state{font-size:13px!important;padding:10px 14px!important}
+#view-storage .disk-partition{grid-template-columns:145px 120px 120px 1fr!important;padding:12px 7px!important}
+#view-storage .disk-partition b{font-size:14px!important}
+#view-storage .disk-partition span{font-size:13px!important;line-height:1.45}
+#view-storage .storage-locations b,#view-storage .storage-locations strong{font-size:14px!important}
+#view-storage .storage-locations span{font-size:13px!important}
