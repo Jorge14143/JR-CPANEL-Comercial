@@ -266,7 +266,7 @@ app.get("/status-data",async(req,res)=>{try{const [nginx,mysql,processes]=await 
 app.get("/status",(req,res)=>res.sendFile(path.join(__dirname,"public","status.html")));
 
 startLiveNetworkSampler();
-const httpServer=app.listen(PORT,HOST,()=>console.log(`JR Server Panel v2.0.0 → http://${HOST}:${PORT}`));
+const httpServer=app.listen(PORT,HOST,()=>console.log(`JR Server Panel v3.0.0 → http://${HOST}:${PORT}`));
 const terminalWss=new WebSocketServer({noServer:true});
 function terminalSessionFromCookie(req){return new Promise(resolve=>{app.request=req;app.response={};const res={getHeader(){},setHeader(){},end(){}};app._router?.handle?.(req,res,()=>resolve(req.session));setTimeout(()=>resolve(req.session),100)})}
 httpServer.on("upgrade",(req,socket,head)=>{
