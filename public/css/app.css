@@ -482,3 +482,21 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 #dashboardView .v3-connectivity .v3-network-live{flex:0 0 82px;min-height:82px;box-sizing:border-box}
 #dashboardView .v3-connectivity .v3-network-live canvas{height:35px;margin:3px 0}
 #dashboardView .v3-connectivity .v3-provider{flex:0 0 auto;margin-top:0}
+
+
+/* V3 approved top quick-access + sidebar brand · 2026-09-30 */
+.side .brand{position:relative;justify-content:flex-start;gap:7px;padding-left:14px;padding-right:8px}
+.side .brand>span{width:61px;min-width:61px}
+.side .brand>span:before{font-size:46px;letter-spacing:-6px}
+.side .brand>span:after{font-size:23px;margin:6px 0 0 3px}
+.side .brand>div{padding-top:18px;min-width:0;position:relative;z-index:2}
+.side .brand>div b{font-size:10px;letter-spacing:-.15px;white-space:nowrap}
+.side .brand>div small{font-size:22px;margin-top:3px}
+.v3-top-quick{padding:10px 12px;margin:0 0 14px}
+.v3-top-quick .pt{margin-bottom:8px}
+.v3-top-quick .pt h3{font-size:12px}
+.v3-top-quick>div:last-child{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:6px}
+.v3-top-quick button{min-width:0;padding:9px 4px;font-size:7px;white-space:nowrap}
+@media(max-width:1350px){.v3-top-quick>div:last-child{grid-template-columns:repeat(6,1fr)}}
+@media(max-width:850px){.v3-top-quick>div:last-child{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.v3-top-quick>div:last-child{grid-template-columns:repeat(2,1fr)}}
