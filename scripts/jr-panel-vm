@@ -222,6 +222,10 @@ case "$ACTION" in
     LOOP=$(/usr/sbin/losetup --find --show --partscan "$DEV")
     [ -b "${LOOP}p1" ] || { echo "linux_partition_not_found" >&2; exit 7; }
     /usr/bin/mount -o ro,noload "${LOOP}p1" "$TMP"
+    ROOT_UUID=$(/usr/sbin/blkid -s UUID -o value "${LOOP}p1" 2>/dev/null || true)
+    SWAP_UUID=""; [ -b "${LOOP}p5" ] && SWAP_UUID=$(/usr/sbin/blkid -s UUID -o value "${LOOP}p5" 2>/dev/null || true)
+    [ -n "$ROOT_UUID" ] || { echo "root_uuid_not_found" >&2; exit 8; }
+    printf 'ROOT_UUID=%s\nSWAP_UUID=%s\n' "$ROOT_UUID" "$SWAP_UUID" > "$DIR/filesystem-uuids"
     /usr/bin/tar --one-file-system --numeric-owner --xattrs --acls -C "$TMP" -cpf - . | /usr/bin/gzip -1 > "$DIR/rootfs.tar.gz"
     /usr/bin/umount "$TMP"; /usr/sbin/losetup -d "$LOOP"; LOOP=""
     /usr/bin/touch "$DIR/COMPLETE"; /usr/bin/sync
@@ -242,8 +246,57 @@ case "$ACTION" in
     /usr/sbin/sfdisk "$DEV" < "$DIR/partition-table.sfdisk"; /usr/bin/dd if="$DIR/boot.bin" of="$DEV" bs=512 count=2048 conv=notrunc status=none; /usr/sbin/partprobe "$DEV" || true
     LOOP=$(/usr/sbin/losetup --find --show --partscan "$DEV"); TMP="/mnt/jr-vm-restore-$$"; /usr/bin/mkdir -p "$TMP"
     cleanup(){ /usr/bin/umount "$TMP" 2>/dev/null || true; [ -n "${LOOP:-}" ] && /usr/sbin/losetup -d "$LOOP" 2>/dev/null || true; }; trap cleanup EXIT INT TERM
-    /usr/sbin/mkfs.ext4 -F "${LOOP}p1" >/dev/null; /usr/bin/mount "${LOOP}p1" "$TMP"; /usr/bin/gzip -dc "$DIR/rootfs.tar.gz" | /usr/bin/tar --numeric-owner --xattrs --acls -C "$TMP" -xpf -
-    /usr/bin/umount "$TMP"; /usr/sbin/mkswap "${LOOP}p5" >/dev/null 2>&1 || true; /usr/sbin/losetup -d "$LOOP"; LOOP=""; /usr/bin/sync; echo "restored:$ID"
+    ROOT_UUID=""; SWAP_UUID=""
+    if [ -f "$DIR/filesystem-uuids" ]; then
+      ROOT_UUID=$(/usr/bin/sed -n 's/^ROOT_UUID=//p' "$DIR/filesystem-uuids" | /usr/bin/head -n1)
+      SWAP_UUID=$(/usr/bin/sed -n 's/^SWAP_UUID=//p' "$DIR/filesystem-uuids" | /usr/bin/head -n1)
+    else
+      # Compatibilidad con backups creados antes de guardar filesystem-uuids.
+      ROOT_UUID=$(/usr/bin/gzip -dc "$DIR/rootfs.tar.gz" | /usr/bin/tar -xOf - ./etc/fstab 2>/dev/null | /usr/bin/awk '$2=="/" && $1 ~ /^UUID=/ {sub(/^UUID=/,"",$1); print $1; exit}' || true)
+      SWAP_UUID=$(/usr/bin/gzip -dc "$DIR/rootfs.tar.gz" | /usr/bin/tar -xOf - ./etc/fstab 2>/dev/null | /usr/bin/awk '$3=="swap" && $1 ~ /^UUID=/ {sub(/^UUID=/,"",$1); print $1; exit}' || true)
+    fi
+    printf '%s' "$ROOT_UUID" | /usr/bin/grep -Eq '^[0-9a-fA-F-]{36}
+    ;;
+  start) need_vm; exec /usr/bin/virsh start "$VM" ;;
+  shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
+  reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
+  destroy) need_vm; exec /usr/bin/virsh destroy "$VM" ;;
+  delete)
+    need_vm
+    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
+    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
+    exec /usr/bin/virsh undefine "$VM" --nvram
+    ;;
+  autostart-on) need_vm; exec /usr/bin/virsh autostart "$VM" ;;
+  autostart-off) need_vm; exec /usr/bin/virsh autostart --disable "$VM" ;;
+  *) echo "invalid_action" >&2; exit 2 ;;
+esac
+ || { echo "root_uuid_not_found" >&2; exit 8; }
+    /usr/sbin/mkfs.ext4 -F -U "$ROOT_UUID" "${LOOP}p1" >/dev/null
+    /usr/bin/mount "${LOOP}p1" "$TMP"; /usr/bin/gzip -dc "$DIR/rootfs.tar.gz" | /usr/bin/tar --numeric-owner --xattrs --acls -C "$TMP" -xpf -
+    /usr/bin/umount "$TMP"
+    if [ -b "${LOOP}p5" ]; then
+      if printf '%s' "$SWAP_UUID" | /usr/bin/grep -Eq '^[0-9a-fA-F-]{36}
+    ;;
+  start) need_vm; exec /usr/bin/virsh start "$VM" ;;
+  shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
+  reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
+  destroy) need_vm; exec /usr/bin/virsh destroy "$VM" ;;
+  delete)
+    need_vm
+    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
+    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
+    exec /usr/bin/virsh undefine "$VM" --nvram
+    ;;
+  autostart-on) need_vm; exec /usr/bin/virsh autostart "$VM" ;;
+  autostart-off) need_vm; exec /usr/bin/virsh autostart --disable "$VM" ;;
+  *) echo "invalid_action" >&2; exit 2 ;;
+esac
+; then /usr/sbin/mkswap -U "$SWAP_UUID" "${LOOP}p5" >/dev/null
+      else echo "swap_uuid_not_found" >&2; exit 9
+      fi
+    fi
+    /usr/sbin/losetup -d "$LOOP"; LOOP=""; /usr/bin/sync; echo "restored:$ID"
     ;;
   start) need_vm; exec /usr/bin/virsh start "$VM" ;;
   shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
