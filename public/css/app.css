@@ -526,3 +526,41 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 
 /* Remove decorative mark overlapping JR brand */
 .side .brand>span:after{content:none!important;display:none!important}
+
+
+/* V3 unified legacy modules · 2026-09-30 */
+:is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel){
+  margin:0 0 22px!important;min-height:calc(100vh - 150px);padding:18px!important;
+  background:linear-gradient(145deg,#0b2034,#071827)!important;border:1px solid #17466a!important;
+  border-radius:12px!important;box-shadow:0 10px 30px rgba(0,0,0,.18)!important;color:#dcecff
+}
+:is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel) .pm2-top{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:14px;padding:0 0 14px;margin-bottom:14px;
+  border-bottom:1px solid #173b58
+}
+:is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel) .pm2-top p{
+  margin:0 0 5px;color:#6389a7;font-size:8px;font-weight:800;letter-spacing:1.8px
+}
+:is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel) .pm2-top h2{
+  margin:0;color:#f3f8ff;font-size:22px;line-height:1;font-weight:900;letter-spacing:.2px
+}
+:is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel) .pm2-top h2 span{color:#22a8ff}
+:is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel) .pm2-top button{
+  border:1px solid #1c6594!important;background:#09253a!important;color:#a9d9f7!important;border-radius:8px!important;
+  padding:9px 12px!important;font-size:8px!important;font-weight:900!important;cursor:pointer
+}
+:is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel) .pm2-top button:hover{background:#0d3450!important;border-color:#238bd0!important}
+:is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel) :is(.mysql-summary,.nginx-summary,.backup-summary,.system-security-summary,.ddns-summary,.ssl-summary,.updates-summary) article{
+  background:#091b2a!important;border-color:#17405f!important;box-shadow:inset 0 1px rgba(255,255,255,.02)
+}
+:is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel) :is(.mysql-box,.nginx-box,.nginx-logbox,.backup-box,.v2-box,.system-security-box,.ddns-box,.ddns-logbox,.ssl-box,.updates-box,.git-deploy-box){
+  background:#081927!important;border-color:#173b57!important
+}
+:is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel) pre{
+  background:#06131e!important;border-color:#15354e!important;color:#a9bfd3!important
+}
+#logsPanel .audit-toolbar input,#logsPanel .audit-toolbar select{background:#081927!important;border-color:#1b496a!important;color:#cce3f6!important}
+#alertsPanel .v2-box{border-radius:10px!important}
+@media(max-width:850px){
+ :is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel) .pm2-top{align-items:flex-start;flex-direction:column}
+}
