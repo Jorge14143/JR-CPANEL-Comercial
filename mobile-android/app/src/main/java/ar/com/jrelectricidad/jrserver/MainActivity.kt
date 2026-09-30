@@ -53,6 +53,7 @@ data class ServerState(val id:String,val name:String,val online:Boolean,val leve
 data class IncidentState(val event:String,val server:String,val title:String,val level:String,val time:String)
 data class ServiceState(val name:String,val status:String,val cpu:Int,val memory:Long,val restarts:Int)
 data class SystemServiceState(val name:String,val label:String,val state:String,val active:Boolean,val enabled:String,val controllable:Boolean)
+data class MobileOverview(val rx:Long=0,val tx:Long=0,val iface:String="--",val maintenance:Boolean=false,val backup:String?=null)
 data class MonitorState(val level:String="loading",val cpu:Int=0,val ram:Int=0,val disk:Int=0,val temp:String="--",val alerts:Int=0,val servers:List<ServerState> = emptyList(),val error:String?=null)
 
 class MainActivity:ComponentActivity(){
@@ -66,9 +67,9 @@ class MainActivity:ComponentActivity(){
 
 @Composable fun JRServerApp(){
  val context=LocalContext.current
- var state by remember{mutableStateOf(MonitorState())};var incidents by remember{mutableStateOf(emptyList<IncidentState>())};var services by remember{mutableStateOf(emptyList<ServiceState>())};var systemServices by remember{mutableStateOf(emptyList<SystemServiceState>())}
+ var state by remember{mutableStateOf(MonitorState())};var overview by remember{mutableStateOf(MobileOverview())};var incidents by remember{mutableStateOf(emptyList<IncidentState>())};var services by remember{mutableStateOf(emptyList<ServiceState>())};var systemServices by remember{mutableStateOf(emptyList<SystemServiceState>())}
  var tab by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())};var selected by remember{mutableStateOf<ServerState?>(null)};var refreshing by remember{mutableStateOf(false)}
- fun refresh(){refreshing=true;MobileApi.load{v->(context as? Activity)?.runOnUiThread{state=v;refreshing=false}};MobileApi.incidents{v->(context as? Activity)?.runOnUiThread{incidents=v}};MobileApi.services{v->(context as? Activity)?.runOnUiThread{services=v}};MobileApi.systemServices{v->(context as? Activity)?.runOnUiThread{systemServices=v}}}
+ fun refresh(){refreshing=true;MobileApi.load{v->(context as? Activity)?.runOnUiThread{state=v;refreshing=false}};MobileApi.incidents{v->(context as? Activity)?.runOnUiThread{incidents=v}};MobileApi.services{v->(context as? Activity)?.runOnUiThread{services=v}};MobileApi.systemServices{v->(context as? Activity)?.runOnUiThread{systemServices=v}};MobileApi.overview{v->(context as? Activity)?.runOnUiThread{overview=v}}}
  if(!paired){PairScreen{paired=true};return}
  LaunchedEffect(Unit){refresh()}
  if(selected!=null){ServerDetail(selected!!,services,systemServices,onBack={selected=null},onRefresh={refresh()});return}
@@ -78,7 +79,7 @@ class MainActivity:ComponentActivity(){
     1->ServerList(state.servers){selected=it}
     2->IncidentList(incidents)
     3->SettingsScreen(onDisconnect={MobileApi.disconnect();paired=false})
-    else->Dashboard(state,refreshing,onRefresh={refresh()},onServer={selected=it},onAlerts={tab=2})
+    else->Dashboard(state,overview,refreshing,onRefresh={refresh()},onServer={selected=it},onAlerts={tab=2})
    }
   }
  }
@@ -99,17 +100,34 @@ class MainActivity:ComponentActivity(){
  }
 }
 
-@Composable fun Dashboard(state:MonitorState,refreshing:Boolean,onRefresh:()->Unit,onServer:(ServerState)->Unit,onAlerts:()->Unit){
+@Composable fun Dashboard(state:MonitorState,overview:MobileOverview,refreshing:Boolean,onRefresh:()->Unit,onServer:(ServerState)->Unit,onAlerts:()->Unit){
  LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
   item{Header("JR SERVER","Monitor móvil",if(refreshing)"…" else "ACTUALIZAR",onRefresh)}
   item{StatusHero(state)}
   item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){Gauge("CPU",state.cpu,Blue,Modifier.weight(1f));Gauge("RAM",state.ram,Green,Modifier.weight(1f))}}
   item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){Gauge("DISCO",state.disk,Orange,Modifier.weight(1f));Gauge("TEMP",state.temp.toDoubleOrNull()?.toInt()?:0,Purple,Modifier.weight(1f),if(state.temp=="--")"--" else state.temp+"°C")}}
+  item{SectionTitle("TRÁFICO DE RED")}
+  item{Card(colors=CardDefaults.cardColors(containerColor=Panel2),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(16.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text("↓ ENTRADA",color=Muted,fontSize=10.sp);Text(formatRate(overview.rx),color=Green,fontWeight=FontWeight.Bold,fontSize=18.sp)};Column(horizontalAlignment=Alignment.End){Text("↑ SALIDA",color=Muted,fontSize=10.sp);Text(formatRate(overview.tx),color=Blue,fontWeight=FontWeight.Bold,fontSize=18.sp)} };Text("Interfaz: "+overview.iface,Modifier.padding(start=16.dp,bottom=14.dp),color=Muted,fontSize=11.sp)}}
+  item{SectionTitle("ACCIONES RÁPIDAS")}
+  item{QuickActions(overview,onRefresh)}
   item{SectionTitle("SERVIDORES")}
   items(state.servers.take(3)){ServerCard(it){onServer(it)}}
   if(state.alerts>0)item{Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF351823)),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(Red)),modifier=Modifier.fillMaxWidth().clickable{onAlerts()}){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.Warning,"Alerta",tint=Red,modifier=Modifier.size(28.dp));Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text("${state.alerts} alerta${if(state.alerts==1)"" else "s"} activa${if(state.alerts==1)"" else "s"}",fontWeight=FontWeight.Bold);Text("Revisar detalles",color=Muted)};Icon(Icons.Default.ChevronRight,"Abrir",tint=Muted)}}}
  }
 }
+
+@Composable fun QuickActions(overview:MobileOverview,onRefresh:()->Unit){
+ val context=LocalContext.current;var ask by remember{mutableStateOf<String?>(null)};var msg by remember{mutableStateOf<String?>(null)}
+ Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){ActionTile(Icons.Default.Build,if(overview.maintenance)"Salir mantenimiento" else "Mantenimiento",Orange,Modifier.weight(1f)){ask=if(overview.maintenance)"maintenance-off" else "maintenance-on"};ActionTile(Icons.Default.Backup,"Backup",Green,Modifier.weight(1f)){ask="backup"}}
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){ActionTile(Icons.Default.Refresh,"Recargar Nginx",Cyan,Modifier.weight(1f)){ask="nginx-reload"};ActionTile(Icons.Default.RestartAlt,"Reiniciar servidor",Red,Modifier.weight(1f)){ask="reboot"}}
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){ActionTile(Icons.Default.CloudDownload,"Deploy web",Purple,Modifier.weight(1f)){ask="deploy-prod"};ActionTile(Icons.Default.Description,"Logs rápidos",Blue,Modifier.weight(1f)){MobileApi.quickLogs{m->(context as? Activity)?.runOnUiThread{msg=m}}}}
+  msg?.let{Text(it,color=Muted,fontSize=11.sp,modifier=Modifier.padding(4.dp))}
+ }
+ if(ask!=null)AlertDialog(onDismissRequest={ask=null},title={Text("Confirmar acción")},text={Text(if(ask=="reboot")"El servidor quedará temporalmente fuera de línea." else "La acción se ejecutará en el servidor.")},confirmButton={TextButton(onClick={val a=ask!!;ask=null;if(a=="deploy-prod")MobileApi.deploy("prod"){ok,m->(context as? Activity)?.runOnUiThread{msg=m;if(ok)onRefresh()}} else MobileApi.quickAction(a){ok,m->(context as? Activity)?.runOnUiThread{msg=m;if(ok)onRefresh()}}}){Text("CONFIRMAR")}},dismissButton={TextButton(onClick={ask=null}){Text("CANCELAR")}})
+}
+@Composable fun ActionTile(icon:androidx.compose.ui.graphics.vector.ImageVector,label:String,color:Color,modifier:Modifier,onClick:()->Unit){Card(modifier.clickable{onClick()},colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.fillMaxWidth().padding(vertical=15.dp),horizontalAlignment=Alignment.CenterHorizontally){Icon(icon,label,tint=color,modifier=Modifier.size(26.dp));Spacer(Modifier.height(7.dp));Text(label,fontSize=11.sp,fontWeight=FontWeight.Bold)}}}
+fun formatRate(v:Long):String{val b=v.toDouble();return when{b>=125000000->"%.1f Gbps".format(b*8/1e9);b>=125000->"%.1f Mbps".format(b*8/1e6);b>=125->"%.0f Kbps".format(b*8/1e3);else->v.toString()+" B/s"}}
 
 @Composable fun StatusHero(s:MonitorState){
  val ok=s.level=="ok";val warn=s.level=="warning";val c=if(ok)Green else if(warn)Orange else Red
@@ -185,6 +203,10 @@ object MobileApi{
  private fun request(path:String,method:String="GET",body:String?=null,done:(Int,String)->Unit){val b=Request.Builder().url(panelUrl()+path).header("Authorization","Bearer "+token());if(method=="POST")b.post((body?:"{}").toRequestBody("application/json".toMediaType()));client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(0,"");override fun onResponse(c:Call,r:Response){r.use{done(it.code,it.body?.string()?:"")}}})}
  fun pair(panel:String,user:String,pass:String,code:String,done:(Boolean,String)->Unit){val json=JSONObject().put("username",user).put("password",pass).put("code",code).put("deviceName",Build.MANUFACTURER+" "+Build.MODEL).toString();val base=try{normalizeUrl(panel)}catch(e:Exception){done(false,e.message?:"URL inválida");return};val req=Request.Builder().url(base+"/api/mobile/v1/pair").post(json.toRequestBody("application/json".toMediaType())).build();client.newCall(req).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(false,"No se pudo conectar");override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");if(it.isSuccessful&&j.optString("token").isNotBlank()){prefs().edit().putString("panel_url",base).apply();saveToken(j.getString("token"));done(true,"")}else done(false,"Credenciales o 2FA incorrectos")}catch(e:Exception){done(false,"Respuesta no válida")}}}})}
  fun statusJson(done:(JSONObject?)->Unit)=request("/api/mobile/v1/status"){code,raw->done(if(code in 200..299)runCatching{JSONObject(raw)}.getOrNull() else null)}
+ fun overview(done:(MobileOverview)->Unit)=request("/api/mobile/v1/overview"){code,raw->if(code !in 200..299){done(MobileOverview());return@request};try{val j=JSONObject(raw);val n=j.getJSONObject("network");val b=j.optJSONObject("backup");done(MobileOverview(n.optLong("rxPerSec"),n.optLong("txPerSec"),n.optString("interface","--"),j.optBoolean("maintenance"),b?.optJSONObject("last")?.optString("time")))}catch(e:Exception){done(MobileOverview())}}
+ fun quickAction(action:String,done:(Boolean,String)->Unit)=request("/api/mobile/v1/actions/"+action,"POST","{}"){code,raw->val ok=code in 200..299;done(ok,runCatching{JSONObject(raw).optString("message",if(ok)"Acción completada" else "Error")}.getOrDefault("Error"))}
+ fun deploy(project:String,done:(Boolean,String)->Unit)=request("/api/mobile/v1/deploy/"+project,"POST","{}"){code,raw->val ok=code in 200..299;done(ok,runCatching{JSONObject(raw).optString("message",if(ok)"Deploy completado" else "Deploy falló")}.getOrDefault("Deploy falló"))}
+ fun quickLogs(done:(String)->Unit)=request("/api/mobile/v1/quick-logs"){code,raw->if(code !in 200..299){done("No se pudieron cargar los logs");return@request};done(runCatching{val a=JSONObject(raw).getJSONArray("lines");buildString{for(i in maxOf(0,a.length()-10) until a.length())append(a.optString(i)).append("\n")}.trim()}.getOrDefault("Sin logs"))}
  fun incidents(done:(List<IncidentState>)->Unit)=request("/api/mobile/v1/incidents?limit=100"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).optJSONArray("history");val out=buildList{if(a!=null)for(i in a.length()-1 downTo 0){val x=a.getJSONObject(i);add(IncidentState(x.optString("event"),x.optString("server"),x.optString("title"),x.optString("level"),x.optString("time")))}};done(out)}catch(e:Exception){done(emptyList())}}
  fun services(done:(List<ServiceState>)->Unit)=request("/api/mobile/v1/services"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).getJSONArray("services");val out=buildList{for(i in 0 until a.length()){val x=a.getJSONObject(i);add(ServiceState(x.optString("name"),x.optString("status"),x.optInt("cpu"),x.optLong("memory"),x.optInt("restarts")))}};done(out)}catch(e:Exception){done(emptyList())}}
  fun systemServices(done:(List<SystemServiceState>)->Unit)=request("/api/mobile/v1/system-services"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).getJSONArray("services");val out=buildList{for(i in 0 until a.length()){val x=a.getJSONObject(i);add(SystemServiceState(x.optString("name"),x.optString("label"),x.optString("state"),x.optBoolean("active"),x.optString("enabled"),x.optBoolean("controllable")))}};done(out)}catch(e:Exception){done(emptyList())}}
