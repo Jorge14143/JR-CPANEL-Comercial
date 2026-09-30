@@ -49,7 +49,7 @@ async function vmAction(action,...values){
       maxBuffer:1024*1024
     });
   }catch(e){
-    console.error("VM action failed:",action,VM||"",String(e.stderr||e.stdout||e.message||e));
+    console.error("VM action failed:",action,String(values[0]||""),String(e.stderr||e.stdout||e.message||e));
     throw e;
   }
 
