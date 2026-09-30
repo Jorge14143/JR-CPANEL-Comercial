@@ -434,3 +434,24 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 
 /* V3 · Email DNS */
 .emaildns-panel{padding:18px}.emaildns-query,.emaildns-dkim>div:last-of-type{display:flex;gap:10px;margin-bottom:14px}.emaildns-query input,.emaildns-dkim input{flex:1;min-width:0;background:#08131f;border:1px solid #203a53;border-radius:8px;color:#dcecff;padding:10px 12px}.emaildns-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}.emaildns-grid article{padding:14px;background:#091522;border:1px solid #17304a;border-radius:10px;min-width:0}.emaildns-grid small{display:block;color:#7790aa;font-size:10px}.emaildns-grid strong{display:block;margin:6px 0;font-size:12px}.emaildns-grid strong.ok{color:#42dc91}.emaildns-grid strong.warn{color:#f2b84b}.emaildns-grid span{display:block;color:#a9bdd2;font-size:11px;overflow-wrap:anywhere}.emaildns-dkim{padding:14px;background:#091522;border:1px solid #17304a;border-radius:10px;margin-bottom:14px}.emaildns-dkim pre{white-space:pre-wrap;overflow-wrap:anywhere;color:#a9bdd2}@media(max-width:900px){.emaildns-grid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.emaildns-grid{grid-template-columns:1fr}.emaildns-query,.emaildns-dkim>div:last-of-type{flex-direction:column}}
+
+
+/* V3 dashboard alignment fix · 2026-09-30 */
+#dashboardView .v3-metrics{align-items:stretch}
+#dashboardView .v3-metric,
+#dashboardView .v3-metric.ram{height:112px;min-height:112px;padding:13px 14px;grid-template-columns:54px minmax(0,1fr) auto;align-items:center}
+#dashboardView .v3-metric-icon{width:48px;height:48px}
+#dashboardView .v3-metric>div:nth-child(2){display:flex;flex-wrap:wrap;align-items:baseline;align-content:center;gap:3px 5px;min-width:0}
+#dashboardView .v3-metric>div:nth-child(2)>small{flex:0 0 100%;font-size:13px}
+#dashboardView .v3-metric>div:nth-child(2)>strong{font-size:29px;margin:2px 0 0;line-height:1}
+#dashboardView .v3-metric>div:nth-child(2)>span{font-size:10px;padding:0;min-width:0}
+#dashboardView .v3-metric em{position:absolute;right:12px;top:12px;font-size:9px;padding:5px 7px}
+#dashboardView .v3-metric:after{left:66%;bottom:10px;height:18px}
+#dashboardView .v3-swap{flex:0 0 100%;display:grid!important;grid-template-columns:auto auto 1fr;gap:5px;margin:6px 0 0!important;padding:5px 0 0!important;border-top:1px solid #223257}
+#dashboardView .v3-swap small{font-size:9px!important;color:#b997ff!important}
+#dashboardView .v3-swap b{font-size:10px}
+#dashboardView .v3-swap>span{font-size:9px!important;text-align:left!important;padding:0!important}
+#dashboardView .v3-swap-bar{display:none}
+#dashboardView .v3-metric.net>div:nth-child(2){display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px}
+#dashboardView .v3-metric.net strong{font-size:15px;white-space:nowrap}
+#dashboardView .v3-metric.net span{font-size:10px;padding:0}
