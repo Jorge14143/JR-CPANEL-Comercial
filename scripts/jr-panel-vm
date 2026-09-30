@@ -192,6 +192,76 @@ case "$ACTION" in
     # Acción idempotente: si ya no hay ISO, no se considera error.
     exit 0
     ;;
+  backup-list)
+    need_vm
+    DIR="/srv/vm-backups/$VM"
+    [ -d "$DIR" ] || exit 0
+    /usr/bin/find "$DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | /usr/bin/sort -r
+    ;;
+  backup-create)
+    need_vm
+    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
+    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
+    DEV=$(/usr/bin/virsh domblklist "$VM" --details 2>/dev/null | /usr/bin/awk '$1=="block" && $2=="disk" {print $4; exit}')
+    case "$DEV" in /dev/sdb[1-4]) ;; *) echo "unsupported_vm_disk" >&2; exit 5 ;; esac
+    TS=$(/usr/bin/date '+%Y-%m-%d_%H-%M-%S')
+    DIR="/srv/vm-backups/$VM/$TS"
+    /usr/bin/mkdir -p "$DIR"
+    /usr/bin/virsh dumpxml "$VM" > "$DIR/vm.xml"
+    /usr/bin/dd if="$DEV" of="$DIR/disk.img" bs=16M status=progress conv=fsync
+    /usr/bin/sync
+    echo "$TS"
+    ;;
+  backup-delete)
+    need_vm
+    ID="${3:-}"
+    printf '%s' "$ID" | /usr/bin/grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}
+  shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
+  reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
+  destroy) need_vm; exec /usr/bin/virsh destroy "$VM" ;;
+  delete)
+    need_vm
+    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
+    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
+    exec /usr/bin/virsh undefine "$VM" --nvram
+    ;;
+  autostart-on) need_vm; exec /usr/bin/virsh autostart "$VM" ;;
+  autostart-off) need_vm; exec /usr/bin/virsh autostart --disable "$VM" ;;
+  *) echo "invalid_action" >&2; exit 2 ;;
+esac
+ || { echo "invalid_backup" >&2; exit 2; }
+    DIR="/srv/vm-backups/$VM/$ID"
+    [ -d "$DIR" ] || { echo "backup_not_found" >&2; exit 3; }
+    /usr/bin/rm -rf -- "$DIR"
+    ;;
+  backup-restore)
+    need_vm
+    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
+    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
+    ID="${3:-}"
+    printf '%s' "$ID" | /usr/bin/grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}
+  shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
+  reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
+  destroy) need_vm; exec /usr/bin/virsh destroy "$VM" ;;
+  delete)
+    need_vm
+    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
+    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
+    exec /usr/bin/virsh undefine "$VM" --nvram
+    ;;
+  autostart-on) need_vm; exec /usr/bin/virsh autostart "$VM" ;;
+  autostart-off) need_vm; exec /usr/bin/virsh autostart --disable "$VM" ;;
+  *) echo "invalid_action" >&2; exit 2 ;;
+esac
+ || { echo "invalid_backup" >&2; exit 2; }
+    IMG="/srv/vm-backups/$VM/$ID/disk.img"
+    [ -f "$IMG" ] || { echo "backup_not_found" >&2; exit 3; }
+    DEV=$(/usr/bin/virsh domblklist "$VM" --details 2>/dev/null | /usr/bin/awk '$1=="block" && $2=="disk" {print $4; exit}')
+    case "$DEV" in /dev/sdb[1-4]) ;; *) echo "unsupported_vm_disk" >&2; exit 5 ;; esac
+    /usr/bin/dd if="$IMG" of="$DEV" bs=16M status=progress conv=fsync
+    /usr/bin/sync
+    echo "restored:$ID"
+    ;;
   start) need_vm; exec /usr/bin/virsh start "$VM" ;;
   shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
   reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
