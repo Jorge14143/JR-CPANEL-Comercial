@@ -1,8 +1,8 @@
 {
   "name": "jr-server-panel",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "Panel privado de administración del servidor JR Electricidad",
+  "description": "JR Server Panel V3 - administración y monitoreo del servidor JR Electricidad",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
