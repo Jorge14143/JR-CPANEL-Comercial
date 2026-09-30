@@ -196,7 +196,13 @@ case "$ACTION" in
     need_vm
     DIR="/srv/vm-backups/$VM"
     [ -d "$DIR" ] || exit 0
-    /usr/bin/find "$DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | /usr/bin/sort -r
+    for D in "$DIR"/*; do
+      [ -d "$D" ] || continue
+      ID=${D##*/}
+      if [ -f "$D/COMPLETE" ]; then STATUS=complete; else STATUS=incomplete; fi
+      SIZE=$(/usr/bin/du -sh "$D" 2>/dev/null | /usr/bin/awk '{print $1}')
+      printf '%s\t%s\t%s\n' "$ID" "$STATUS" "${SIZE:-0}"
+    done | /usr/bin/sort -r
     ;;
   backup-create)
     need_vm
@@ -204,35 +210,40 @@ case "$ACTION" in
     [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
     DEV=$(/usr/bin/virsh domblklist "$VM" --details 2>/dev/null | /usr/bin/awk '$1=="block" && $2=="disk" {print $4; exit}')
     case "$DEV" in /dev/sdb[1-4]) ;; *) echo "unsupported_vm_disk" >&2; exit 5 ;; esac
-    TS=$(/usr/bin/date '+%Y-%m-%d_%H-%M-%S')
-    DIR="/srv/vm-backups/$VM/$TS"
-    /usr/bin/mkdir -p "$DIR"
+    AVAIL=$(/usr/bin/df -Pk /srv/vm-backups | /usr/bin/awk 'NR==2 {print $4}')
+    [ "${AVAIL:-0}" -ge 4194304 ] || { echo "not_enough_backup_space" >&2; exit 6; }
+    TS=$(/usr/bin/date '+%Y-%m-%d_%H-%M-%S'); DIR="/srv/vm-backups/$VM/$TS"; TMP="/mnt/jr-vm-backup-$$"
+    /usr/bin/mkdir -p "$DIR" "$TMP"
+    cleanup(){ /usr/bin/umount "$TMP" 2>/dev/null || true; [ -n "${LOOP:-}" ] && /usr/sbin/losetup -d "$LOOP" 2>/dev/null || true; }
+    trap cleanup EXIT INT TERM
     /usr/bin/virsh dumpxml "$VM" > "$DIR/vm.xml"
-    /usr/bin/dd if="$DEV" of="$DIR/disk.img" bs=16M status=progress conv=fsync
-    /usr/bin/sync
+    /usr/sbin/sfdisk -d "$DEV" > "$DIR/partition-table.sfdisk"
+    /usr/bin/dd if="$DEV" of="$DIR/boot.bin" bs=512 count=2048 status=none
+    LOOP=$(/usr/sbin/losetup --find --show --partscan "$DEV")
+    [ -b "${LOOP}p1" ] || { echo "linux_partition_not_found" >&2; exit 7; }
+    /usr/bin/mount -o ro,noload "${LOOP}p1" "$TMP"
+    /usr/bin/tar --one-file-system --numeric-owner --xattrs --acls -C "$TMP" -cpf - . | /usr/bin/gzip -1 > "$DIR/rootfs.tar.gz"
+    /usr/bin/umount "$TMP"; /usr/sbin/losetup -d "$LOOP"; LOOP=""
+    /usr/bin/touch "$DIR/COMPLETE"; /usr/bin/sync
     echo "$TS"
     ;;
   backup-delete)
     need_vm
-    ID="${3:-}"
-    printf '%s' "$ID" | /usr/bin/grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}$' || { echo "invalid_backup" >&2; exit 2; }
-    DIR="/srv/vm-backups/$VM/$ID"
-    [ -d "$DIR" ] || { echo "backup_not_found" >&2; exit 3; }
-    /usr/bin/rm -rf -- "$DIR"
+    ID="${3:-}"; printf '%s' "$ID" | /usr/bin/grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}$' || { echo "invalid_backup" >&2; exit 2; }
+    DIR="/srv/vm-backups/$VM/$ID"; [ -d "$DIR" ] || { echo "backup_not_found" >&2; exit 3; }; /usr/bin/rm -rf -- "$DIR"
     ;;
   backup-restore)
     need_vm
     STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
     [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
-    ID="${3:-}"
-    printf '%s' "$ID" | /usr/bin/grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}$' || { echo "invalid_backup" >&2; exit 2; }
-    IMG="/srv/vm-backups/$VM/$ID/disk.img"
-    [ -f "$IMG" ] || { echo "backup_not_found" >&2; exit 3; }
-    DEV=$(/usr/bin/virsh domblklist "$VM" --details 2>/dev/null | /usr/bin/awk '$1=="block" && $2=="disk" {print $4; exit}')
-    case "$DEV" in /dev/sdb[1-4]) ;; *) echo "unsupported_vm_disk" >&2; exit 5 ;; esac
-    /usr/bin/dd if="$IMG" of="$DEV" bs=16M status=progress conv=fsync
-    /usr/bin/sync
-    echo "restored:$ID"
+    ID="${3:-}"; printf '%s' "$ID" | /usr/bin/grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}$' || { echo "invalid_backup" >&2; exit 2; }
+    DIR="/srv/vm-backups/$VM/$ID"; [ -f "$DIR/COMPLETE" ] && [ -f "$DIR/rootfs.tar.gz" ] && [ -f "$DIR/partition-table.sfdisk" ] || { echo "backup_incomplete" >&2; exit 3; }
+    DEV=$(/usr/bin/virsh domblklist "$VM" --details 2>/dev/null | /usr/bin/awk '$1=="block" && $2=="disk" {print $4; exit}'); case "$DEV" in /dev/sdb[1-4]) ;; *) echo "unsupported_vm_disk" >&2; exit 5 ;; esac
+    /usr/sbin/sfdisk "$DEV" < "$DIR/partition-table.sfdisk"; /usr/bin/dd if="$DIR/boot.bin" of="$DEV" bs=512 count=2048 conv=notrunc status=none; /usr/sbin/partprobe "$DEV" || true
+    LOOP=$(/usr/sbin/losetup --find --show --partscan "$DEV"); TMP="/mnt/jr-vm-restore-$$"; /usr/bin/mkdir -p "$TMP"
+    cleanup(){ /usr/bin/umount "$TMP" 2>/dev/null || true; [ -n "${LOOP:-}" ] && /usr/sbin/losetup -d "$LOOP" 2>/dev/null || true; }; trap cleanup EXIT INT TERM
+    /usr/sbin/mkfs.ext4 -F "${LOOP}p1" >/dev/null; /usr/bin/mount "${LOOP}p1" "$TMP"; /usr/bin/gzip -dc "$DIR/rootfs.tar.gz" | /usr/bin/tar --numeric-owner --xattrs --acls -C "$TMP" -xpf -
+    /usr/bin/umount "$TMP"; /usr/sbin/mkswap "${LOOP}p5" >/dev/null 2>&1 || true; /usr/sbin/losetup -d "$LOOP"; LOOP=""; /usr/bin/sync; echo "restored:$ID"
     ;;
   start) need_vm; exec /usr/bin/virsh start "$VM" ;;
   shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
