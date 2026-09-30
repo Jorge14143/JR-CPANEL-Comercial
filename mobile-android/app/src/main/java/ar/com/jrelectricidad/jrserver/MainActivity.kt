@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,10 +85,10 @@ class MainActivity:ComponentActivity(){
 }
 
 @Composable fun BottomNav(tab:Int,alerts:Int,onTab:(Int)->Unit){
- NavigationBar(containerColor=Color(0xFF081522)){
-  listOf("⌂" to "Inicio","▤" to "Servidores","♧" to "Alertas","⚙" to "Ajustes").forEachIndexed{i,x->
-   NavigationBarItem(selected=tab==i,onClick={onTab(i)},icon={Box{Text(x.first,fontSize=22.sp,color=if(tab==i)Blue else Muted);if(i==2&&alerts>0)Badge(Modifier.align(Alignment.TopEnd)){Text(alerts.toString())}}},label={Text(x.second)},colors=NavigationBarItemDefaults.colors(indicatorColor=Panel2,selectedTextColor=Blue,unselectedTextColor=Muted))
-  }
+ val icons=listOf(Icons.Default.Home,Icons.Default.Dns,Icons.Default.Notifications,Icons.Default.Settings)
+ val labels=listOf("Inicio","Servidores","Alertas","Ajustes")
+ NavigationBar(containerColor=Color(0xFF081522),tonalElevation=10.dp){
+  labels.indices.forEach{i->NavigationBarItem(selected=tab==i,onClick={onTab(i)},icon={BadgedBox(badge={if(i==2&&alerts>0)Badge{Text(alerts.toString())}}){Icon(icons[i],labels[i])}},label={Text(labels[i])},colors=NavigationBarItemDefaults.colors(selectedIconColor=Cyan,selectedTextColor=Cyan,unselectedIconColor=Muted,unselectedTextColor=Muted,indicatorColor=Panel2))}
  }
 }
 
@@ -105,7 +107,7 @@ class MainActivity:ComponentActivity(){
   item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){Gauge("DISCO",state.disk,Orange,Modifier.weight(1f));Gauge("TEMP",state.temp.toDoubleOrNull()?.toInt()?:0,Purple,Modifier.weight(1f),if(state.temp=="--")"--" else state.temp+"°C")}}
   item{SectionTitle("SERVIDORES")}
   items(state.servers.take(3)){ServerCard(it){onServer(it)}}
-  if(state.alerts>0)item{Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF351823)),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(Red)),modifier=Modifier.fillMaxWidth().clickable{onAlerts()}){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text("⚠",fontSize=28.sp,color=Red);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text("${state.alerts} alerta${if(state.alerts==1)"" else "s"} activa${if(state.alerts==1)"" else "s"}",fontWeight=FontWeight.Bold);Text("Revisar detalles",color=Muted)};Text("›",fontSize=28.sp)}}}
+  if(state.alerts>0)item{Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF351823)),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(Red)),modifier=Modifier.fillMaxWidth().clickable{onAlerts()}){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.Warning,"Alerta",tint=Red,modifier=Modifier.size(28.dp));Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text("${state.alerts} alerta${if(state.alerts==1)"" else "s"} activa${if(state.alerts==1)"" else "s"}",fontWeight=FontWeight.Bold);Text("Revisar detalles",color=Muted)};Icon(Icons.Default.ChevronRight,"Abrir",tint=Muted)}}}
  }
 }
 
@@ -133,7 +135,7 @@ class MainActivity:ComponentActivity(){
  LaunchedEffect(server.id){if(server.id!="local")MobileApi.serverSystemServices(server.id){v->(context as? Activity)?.runOnUiThread{remoteServices=v}}}
  LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
   item{Row(verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onBack){Text("‹",fontSize=34.sp)};Header("JR SERVER","Detalle del servidor")}}
-  item{Card(colors=CardDefaults.cardColors(containerColor=Panel2),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(50.dp).background(Blue.copy(alpha=.18f),RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center){Text("▣",color=Cyan,fontSize=25.sp)};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(server.name,fontWeight=FontWeight.Bold,fontSize=18.sp);Text(server.host,color=Muted)};Text(if(server.online)"ONLINE" else "OFFLINE",color=if(server.online)Green else Red,fontWeight=FontWeight.Bold)}}}
+  item{Card(colors=CardDefaults.cardColors(containerColor=Panel2),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(50.dp).background(Blue.copy(alpha=.18f),RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center){Icon(Icons.Default.Dns,"Servidor",tint=Cyan,modifier=Modifier.size(25.dp))};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(server.name,fontWeight=FontWeight.Bold,fontSize=18.sp);Text(server.host,color=Muted)};Text(if(server.online)"ONLINE" else "OFFLINE",color=if(server.online)Green else Red,fontWeight=FontWeight.Bold)}}}
   item{Row(Modifier.fillMaxWidth()){Button(onClick={serviceTab=false},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=if(!serviceTab)Blue else Panel2)){Text("Estado")};Spacer(Modifier.width(8.dp));Button(onClick={serviceTab=true},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=if(serviceTab)Blue else Panel2)){Text("Servicios")}}}
   if(!serviceTab){item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){MiniMetric("CPU",server.cpu?.let{"${it}%"}?:"--",Blue,Modifier.weight(1f));MiniMetric("RAM",server.ram?.let{"${it}%"}?:"--",Green,Modifier.weight(1f))}};item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){MiniMetric("DISCO",server.disk?.let{"${it}%"}?:"--",Orange,Modifier.weight(1f));MiniMetric("TEMP",server.temp?.let{"${it}°C"}?:"--",Purple,Modifier.weight(1f))}}}
   else if(server.name.equals("JR Server",true)||server.host.contains("jrelectricidad",true)){item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){SectionTitle("SERVICIOS DEL SISTEMA");TextButton(onClick=onRefresh){Text("↻ Actualizar")}}};items(systemServices){SystemServiceCard(it,onDone=onRefresh)};item{Spacer(Modifier.height(4.dp));SectionTitle("PROCESOS PM2")};items(services){ServiceCard(it,onDone=onRefresh)}}
@@ -145,7 +147,7 @@ class MainActivity:ComponentActivity(){
 
 @Composable fun SystemServiceCard(s:SystemServiceState,onDone:()->Unit){
  val context=LocalContext.current;var ask by remember{mutableStateOf<String?>(null)};var busy by remember{mutableStateOf(false)};var msg by remember{mutableStateOf<String?>(null)}
- Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(15.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column(Modifier.weight(1f)){Text(s.label,fontWeight=FontWeight.Bold);Text(s.name+" · "+s.enabled,color=Muted,fontSize=11.sp)};Text(if(s.active)"● ACTIVO" else "● "+s.state.uppercase(),color=if(s.active)Green else Red,fontSize=11.sp,fontWeight=FontWeight.Bold)};Spacer(Modifier.height(12.dp));if(s.controllable){Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){if(!s.active)SmallAction("▶ Iniciar",Green){ask="start"};SmallAction("↻ Reiniciar",Blue){ask="restart"};SmallAction("■ Detener",Red){ask="stop"}}}else Text("PROTEGIDO · Control remoto deshabilitado",color=Orange,fontSize=11.sp,fontWeight=FontWeight.Bold);msg?.let{Text(it,color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=8.dp))}}}
+ Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(15.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column(Modifier.weight(1f)){Text(s.label,fontWeight=FontWeight.Bold);Text(s.name+" · "+s.enabled,color=Muted,fontSize=11.sp)};Text(if(s.active)"● ACTIVO" else "● "+s.state.uppercase(),color=if(s.active)Green else Red,fontSize=11.sp,fontWeight=FontWeight.Bold)};Spacer(Modifier.height(12.dp));if(s.controllable){Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){if(!s.active)SmallAction("Iniciar",Green){ask="start"};SmallAction("Reiniciar",Blue){ask="restart"};SmallAction("Detener",Red){ask="stop"}}}else Text("PROTEGIDO · Control remoto deshabilitado",color=Orange,fontSize=11.sp,fontWeight=FontWeight.Bold);msg?.let{Text(it,color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=8.dp))}}}
  if(ask!=null)AlertDialog(onDismissRequest={ask=null},title={Text(when(ask){"stop"->"Detener servicio";"start"->"Iniciar servicio";else->"Reiniciar servicio"})},text={Text("¿Confirmás "+askText(ask!!)+" "+s.label+"?")},confirmButton={TextButton(enabled=!busy,onClick={val action=ask!!;busy=true;MobileApi.systemServiceAction(s.name,action){ok,message->(context as? Activity)?.runOnUiThread{busy=false;ask=null;msg=message;if(ok)onDone()}}}){Text(if(busy)"…" else "CONFIRMAR")}},dismissButton={TextButton(onClick={ask=null}){Text("CANCELAR")}})
 }
 
