@@ -62,9 +62,9 @@ class MainActivity:ComponentActivity(){
   item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){Metric("CPU",state.cpu.toString()+"%",Modifier.weight(1f));Metric("RAM",state.ram.toString()+"%",Modifier.weight(1f));Metric("DISCO",state.disk.toString()+"%",Modifier.weight(1f))}}
   item{Metric("TEMPERATURA",if(state.temp=="--")"--" else state.temp+" °C",Modifier.fillMaxWidth())}
   item{Text("SERVIDORES",style=MaterialTheme.typography.titleMedium)}
-  items(state.servers.take(3)){s->ServerCard(s)}}
-  if(tab==0)item{Text("Alertas activas: "+state.alerts)}
- }
+  items(state.servers.take(3)){s->ServerCard(s)}
+  item{Text("Alertas activas: "+state.alerts)}
+  }
  }
 }
 @Composable fun SettingsScreen(onBack:()->Unit,onDisconnect:()->Unit){
