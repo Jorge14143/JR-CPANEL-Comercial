@@ -470,3 +470,15 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
  #dashboardView .v3-connectivity{height:380px;min-height:380px}
  #dashboardView .v3-chart canvas{height:285px!important}
 }
+
+
+/* V3 connectivity final fit · 2026-09-30 */
+#dashboardView .v3-connectivity{display:flex;flex-direction:column}
+#dashboardView .v3-connectivity>.pt{flex:0 0 auto}
+#dashboardView .v3-connectivity .v3-speed-grid{flex:0 0 auto;padding-top:8px;padding-bottom:6px}
+#dashboardView .v3-connectivity .v3-speed-grid article{height:64px;padding:8px 10px}
+#dashboardView .v3-connectivity .v3-latency-grid{flex:0 0 auto;padding-bottom:6px}
+#dashboardView .v3-connectivity .v3-latency-grid>div{height:48px;padding:5px 7px}
+#dashboardView .v3-connectivity .v3-network-live{flex:0 0 82px;min-height:82px;box-sizing:border-box}
+#dashboardView .v3-connectivity .v3-network-live canvas{height:35px;margin:3px 0}
+#dashboardView .v3-connectivity .v3-provider{flex:0 0 auto;margin-top:0}
