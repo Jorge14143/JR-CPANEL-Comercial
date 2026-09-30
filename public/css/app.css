@@ -522,3 +522,7 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .side .brand>div b{display:block!important;margin:0!important;font:800 9px/1.1 Arial!important;letter-spacing:-.15px!important;color:#f3f7fc!important;white-space:nowrap!important}
 .side .brand>div b:after{content:none!important;display:none!important}
 .side .brand>div small{display:block!important;margin:6px 0 0!important;font:italic 900 20px/1 Arial!important;letter-spacing:2px!important;color:#168cff!important}
+
+
+/* Remove decorative mark overlapping JR brand */
+.side .brand>span:after{content:none!important;display:none!important}
