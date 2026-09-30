@@ -215,21 +215,7 @@ case "$ACTION" in
   backup-delete)
     need_vm
     ID="${3:-}"
-    printf '%s' "$ID" | /usr/bin/grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}
-  shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
-  reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
-  destroy) need_vm; exec /usr/bin/virsh destroy "$VM" ;;
-  delete)
-    need_vm
-    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
-    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
-    exec /usr/bin/virsh undefine "$VM" --nvram
-    ;;
-  autostart-on) need_vm; exec /usr/bin/virsh autostart "$VM" ;;
-  autostart-off) need_vm; exec /usr/bin/virsh autostart --disable "$VM" ;;
-  *) echo "invalid_action" >&2; exit 2 ;;
-esac
- || { echo "invalid_backup" >&2; exit 2; }
+    printf '%s' "$ID" | /usr/bin/grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}$' || { echo "invalid_backup" >&2; exit 2; }
     DIR="/srv/vm-backups/$VM/$ID"
     [ -d "$DIR" ] || { echo "backup_not_found" >&2; exit 3; }
     /usr/bin/rm -rf -- "$DIR"
@@ -239,21 +225,7 @@ esac
     STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
     [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
     ID="${3:-}"
-    printf '%s' "$ID" | /usr/bin/grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}
-  shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
-  reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
-  destroy) need_vm; exec /usr/bin/virsh destroy "$VM" ;;
-  delete)
-    need_vm
-    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
-    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
-    exec /usr/bin/virsh undefine "$VM" --nvram
-    ;;
-  autostart-on) need_vm; exec /usr/bin/virsh autostart "$VM" ;;
-  autostart-off) need_vm; exec /usr/bin/virsh autostart --disable "$VM" ;;
-  *) echo "invalid_action" >&2; exit 2 ;;
-esac
- || { echo "invalid_backup" >&2; exit 2; }
+    printf '%s' "$ID" | /usr/bin/grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}$' || { echo "invalid_backup" >&2; exit 2; }
     IMG="/srv/vm-backups/$VM/$ID/disk.img"
     [ -f "$IMG" ] || { echo "backup_not_found" >&2; exit 3; }
     DEV=$(/usr/bin/virsh domblklist "$VM" --details 2>/dev/null | /usr/bin/awk '$1=="block" && $2=="disk" {print $4; exit}')
