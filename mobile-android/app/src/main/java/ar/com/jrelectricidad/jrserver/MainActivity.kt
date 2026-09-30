@@ -1,6 +1,7 @@
 package ar.com.jrelectricidad.jrserver
 
 import android.os.Bundle
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -18,7 +19,7 @@ data class ServerState(val name:String,val online:Boolean,val level:String,val h
 data class MonitorState(val level:String="loading",val cpu:Int=0,val ram:Int=0,val disk:Int=0,val temp:String="--",val alerts:Int=0,val servers:List<ServerState> = emptyList(),val error:String?=null)
 
 class MainActivity : ComponentActivity() {
- override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{MaterialTheme(colorScheme=darkColorScheme()){Surface(Modifier.fillMaxSize()){JRServerApp()}}}}
+ override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);MobileApi.init(applicationContext);setContent{MaterialTheme(colorScheme=darkColorScheme()){Surface(Modifier.fillMaxSize()){JRServerApp()}}}}
 }
 
 @Composable fun JRServerApp(){
@@ -45,12 +46,16 @@ class MainActivity : ComponentActivity() {
 object MobileApi{
  private const val BASE_URL="https://jrserver.jrelectricidad.com.ar"
  private val client=OkHttpClient()
+ private lateinit var context:Context
+ fun init(c:Context){context=c.applicationContext}
+ private fun token():String=context.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE).getString("token","")?:""
+ fun saveToken(value:String){context.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE).edit().putString("token",value).apply()}
  fun load(done:(MonitorState)->Unit){
-  val req=Request.Builder().url(BASE_URL+"/api/mobile/v1/status").build()
+  val builder=Request.Builder().url(BASE_URL+"/api/mobile/v1/status");val t=token();if(t.isNotBlank())builder.header("Authorization","Bearer "+t);val req=builder.build()
   client.newCall(req).enqueue(object:Callback{
    override fun onFailure(call:Call,e:IOException)=done(MonitorState(level="critical",error="No se pudo conectar al panel"))
    override fun onResponse(call:Call,response:Response){response.use{
-    if(!it.isSuccessful){done(MonitorState(level="critical",error="Panel respondió HTTP "+it.code+". Falta vincular la app."));return}
+    if(!it.isSuccessful){done(MonitorState(level="critical",error=if(it.code==401)"Dispositivo sin vincular" else "Panel respondió HTTP "+it.code));return}
     try{
      val j=JSONObject(it.body?.string()?:"{}");val summary=j.getJSONObject("summary");val local=j.getJSONObject("local");val arr=j.getJSONArray("servers")
      val servers=buildList{for(i in 0 until arr.length()){val x=arr.getJSONObject(i);add(ServerState(x.optString("name"),x.optBoolean("online"),x.optString("level"),x.optString("host")))}}
