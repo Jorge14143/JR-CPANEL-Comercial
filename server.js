@@ -42,6 +42,34 @@ app.get("/status",(req,res)=>res.sendFile(path.join(__dirname,"public","status.h
 app.post("/api/mobile/v1/pair",limiter,(req,res)=>{if(!configured())return res.status(503).json({error:"setup_required"});const user=String(req.body?.username||""),password=String(req.body?.password||""),code=String(req.body?.code||"").replace(/\s/g,""),name=String(req.body?.deviceName||"Android").trim().slice(0,80)||"Android";if(!safeEq(user,process.env.ADMIN_USER||"")||!passOk(password)||!authenticator.check(code,process.env.TOTP_SECRET||""))return res.status(401).json({error:"invalid_credentials"});const token=crypto.randomBytes(48).toString("base64url"),items=mobileDevices(),item={id:crypto.randomUUID(),name,tokenHash:crypto.createHash("sha256").update(token).digest("hex"),createdAt:new Date().toISOString(),lastSeen:null,lastIp:ip(req)};items.push(item);saveMobileDevices(items);append(AUDIT,{action:"mobile_device_paired",ip:ip(req),user,device:name});res.status(201).json({ok:true,token,device:{id:item.id,name:item.name,createdAt:item.createdAt}})});
 app.get("/api/mobile/v1/status",mobileAuth,async(req,res)=>{try{res.set("Cache-Control","no-store").json(await mobileV1Status())}catch(e){res.status(500).json({error:"mobile_status_unavailable"})}});
 app.get("/api/mobile/v1/incidents",mobileAuth,(req,res)=>res.json({active:Object.values(mobileAlertState().active||{}),history:mobileAlertHistory(Number(req.query.limit)||100)}));
+app.get("/api/mobile/v1/overview",mobileAuth,async(req,res)=>{
+ try{
+  const [backupR,sslR,controlR]=await Promise.allSettled([backupAction("list"),sslAction("list"),systemControl("status")]);
+  const backupLines=backupR.status==="fulfilled"?String(backupR.value.stdout||"").trim().split("\n").filter(Boolean):[];
+  const lastBackup=backupLines.length?(()=>{const [mtime,size,...parts]=backupLines[0].split("\t");return{name:path.basename(parts.join("\t")),size:Number(size)||0,time:new Date((Number(mtime)||0)*1000).toISOString()}})():null;
+  let certificates=[];if(sslR.status==="fulfilled")try{certificates=parseCertbot(sslR.value.stdout||"")}catch{}
+  const maintenance=controlR.status==="fulfilled"&&/maintenance=on/.test(String(controlR.value.stdout||""));
+  res.set("Cache-Control","no-store").json({network:{interface:liveNetwork.interface,rxPerSec:liveNetwork.rxPerSec||0,txPerSec:liveNetwork.txPerSec||0,rxBytes:liveNetwork.rxBytes||0,txBytes:liveNetwork.txBytes||0,requestsPerSec:liveNetwork.nginxRequestsPerSec||0},backup:{last:lastBackup,ok:!!lastBackup},certificates,maintenance,updatedAt:new Date().toISOString()});
+ }catch(e){res.status(500).json({error:"mobile_overview_unavailable"})}
+});
+app.post("/api/mobile/v1/actions/:action",mobileAuth,async(req,res)=>{
+ const action=String(req.params.action||"");append(AUDIT,{action:"mobile_quick_"+action,ip:ip(req),device:req.mobileDevice?.name||"mobile"});
+ try{
+  if(action==="backup"){const {stdout,stderr}=await backupAction("run",180000);return res.json({ok:true,message:"Backup completado",output:(stdout+"\n"+stderr).trim().slice(-2000)})}
+  if(action==="maintenance-on"||action==="maintenance-off"){const {stdout}=await systemControl(action);return res.json({ok:true,message:action.endsWith("on")?"Modo mantenimiento activado":"Modo mantenimiento desactivado",maintenance:/maintenance=on/.test(stdout)})}
+  if(action==="reboot"){res.status(202).json({ok:true,message:"Reinicio programado"});setTimeout(()=>execFile("sudo",["-n","/usr/local/sbin/jr-panel-system-control","reboot"],()=>{}),500);return}
+  if(action==="nginx-reload"){const {stdout,stderr}=await nginxAction("reload");return res.json({ok:true,message:"Nginx validado y recargado",output:(stdout+"\n"+stderr).trim().slice(-2000)})}
+  return res.status(400).json({error:"invalid_action"});
+ }catch(e){append(AUDIT,{action:"mobile_quick_"+action+"_failed",ip:ip(req),device:req.mobileDevice?.name||"mobile"});res.status(500).json({error:"action_failed",output:String(e.stderr||e.stdout||e.message||"").trim().slice(-2000)})}
+});
+app.post("/api/mobile/v1/deploy/:project",mobileAuth,async(req,res)=>{
+ const project=String(req.params.project||"");if(!["panel","prod","test"].includes(project))return res.status(400).json({error:"invalid_project"});
+ append(AUDIT,{action:"mobile_git_deploy",target:project,ip:ip(req),device:req.mobileDevice?.name||"mobile"});
+ try{const {stdout,stderr}=await gitDeployAction("deploy",project,300000);res.json({ok:true,message:"Deploy completado",output:(stdout+"\n"+stderr).trim().slice(-3000)})}catch(e){res.status(409).json({error:"git_deploy_failed",output:String(e.stderr||e.stdout||"").trim().slice(-3000)})}
+});
+app.get("/api/mobile/v1/quick-logs",mobileAuth,async(req,res)=>{
+ try{const {stdout,stderr}=await execFileAsync("pm2",["logs","--nostream","--lines","60"],{timeout:12000,maxBuffer:512*1024});res.set("Cache-Control","no-store").json({lines:(stdout+"\n"+stderr).split("\n").filter(Boolean).slice(-80)})}catch(e){res.status(500).json({error:"logs_unavailable"})}
+});
 
 const MOBILE_SYSTEM_SERVICES=[{name:"nginx",label:"Nginx",controllable:true},{name:"mysql",label:"MySQL",controllable:true},{name:"fail2ban",label:"Fail2Ban",controllable:true},{name:"ssh",label:"SSH",controllable:false},{name:"jr-cloudflare-ddns.timer",label:"Cloudflare DDNS",controllable:true},{name:"certbot.timer",label:"Certbot",controllable:true},{name:"unattended-upgrades",label:"Actualizaciones automáticas",controllable:true}];
 async function mobileSystemServices(){const out=[];for(const svc of MOBILE_SYSTEM_SERVICES){const state=(await cmd("systemctl",["is-active",svc.name]))||"unknown",enabled=(await cmd("systemctl",["is-enabled",svc.name]))||"unknown";out.push({...svc,state,active:state==="active",enabled})}return out}
