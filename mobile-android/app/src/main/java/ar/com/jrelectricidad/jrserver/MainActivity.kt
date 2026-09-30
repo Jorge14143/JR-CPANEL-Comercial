@@ -137,6 +137,15 @@ class MonitorWorker(c:Context,p:WorkerParameters):Worker(c,p){
 object AlertNotifier{
  private const val CH="jr_alerts"
  fun channel(c:Context){if(Build.VERSION.SDK_INT>=26)(c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(NotificationChannel(CH,"Alertas JR Server",NotificationManager.IMPORTANCE_HIGH))}
- fun evaluate(c:Context,j:JSONObject){val level=j.optJSONObject("summary")?.optString("level")?:"ok";val prefs=c.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE);val before=prefs.getString("last_level","ok")?:"ok";if(level!=before){if(level=="critical"||level=="warning")notify(c,100,"JR Server · Alerta",if(level=="critical")"Se detectó una falla. Abrí la app para revisar el servidor.":"Hay una advertencia nueva en el servidor.");else if(before=="critical"||before=="warning")notify(c,101,"JR Server · Recuperado","Los servicios volvieron a estado normal.");prefs.edit().putString("last_level",level).apply()}}
+ fun evaluate(c:Context,j:JSONObject){
+  val prefs=c.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE)
+  val active=j.optJSONArray("incidents")
+  val now=mutableSetOf<String>();val info=mutableMapOf<String,Pair<String,String>>()
+  if(active!=null)for(i in 0 until active.length()){val x=active.optJSONObject(i)?:continue;val key=x.optString("key");if(key.isNotBlank()){now.add(key);info[key]=Pair(x.optString("server","JR Server"),x.optString("title","Falla detectada"))}}
+  val before=prefs.getStringSet("active_incidents",emptySet())?.toSet()?:emptySet()
+  for(key in now-before){val x=info[key];notify(c,key.hashCode(),"JR Server · "+(x?.first?:"Alerta"),x?.second?:"Se detectó un nuevo incidente.")}
+  for(key in before-now)notify(c,key.hashCode(),"JR Server · Recuperado","Un incidente activo fue resuelto. Abrí la app para ver el historial.")
+  prefs.edit().putStringSet("active_incidents",now).apply()
+ }
  private fun notify(c:Context,id:Int,title:String,text:String){if(Build.VERSION.SDK_INT>=33&&c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return;channel(c);val intent=Intent(c,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP);val pi=PendingIntent.getActivity(c,0,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE);val n=NotificationCompat.Builder(c,CH).setSmallIcon(android.R.drawable.stat_notify_error).setContentTitle(title).setContentText(text).setPriority(NotificationCompat.PRIORITY_HIGH).setContentIntent(pi).setAutoCancel(true).build();NotificationManagerCompat.from(c).notify(id,n)}
 }
