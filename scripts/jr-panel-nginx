@@ -15,7 +15,18 @@ case "${1:-}" in
     exec /usr/bin/tail -n 80 /var/log/nginx/error.log
     ;;
   request-count)
-    exec /usr/bin/wc -l /var/log/nginx/access.log
+    # Lightweight cumulative request counter: read only the appended tail
+    # metadata instead of rescanning the whole access log with wc on every sample.
+    stat_out=$(/usr/bin/stat -c '%i %s' /var/log/nginx/access.log)
+    set -- $stat_out
+    inode=$1
+    size=$2
+    printf '%s %s\n' "$inode" "$size"
+    ;;
+  analytics)
+    # Bounded snapshot for the panel. Parsing is done in Node and never scans
+    # the complete log, so large production logs do not stall the sampler.
+    exec /usr/bin/tail -n 2000 /var/log/nginx/access.log
     ;;
   *)
     echo "Accion no permitida" >&2
