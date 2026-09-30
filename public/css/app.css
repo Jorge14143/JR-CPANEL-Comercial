@@ -579,3 +579,18 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .files-destination-list{margin:0 20px;min-height:220px;max-height:390px;overflow:auto;border:1px solid #174665;border-radius:9px;background:#061522;padding:7px}.files-destination-folder{display:block!important;width:100%!important;text-align:left!important;background:transparent!important;color:#dcecff!important;border:0!important;border-bottom:1px solid #102f46!important;border-radius:5px!important;padding:10px 11px!important;font-size:12px!important;cursor:pointer!important}.files-destination-folder:hover{background:#0b3553!important}.files-destination-empty{padding:30px;text-align:center;color:#7898b0}
 .files-destination-selected{margin:12px 20px 0;padding:10px 12px;background:#0a2133;border:1px solid #174665;border-radius:8px}.files-destination-selected small{display:block;color:#668eaa;font-size:8px;font-weight:900;letter-spacing:1px}.files-destination-selected b{display:block;margin-top:4px;font-size:11px;word-break:break-all}
 .files-destination-actions{display:flex;justify-content:flex-end;gap:9px;padding:14px 20px 18px}.files-destination-actions .primary{background:#0878c9!important;border-color:#1598ef!important;color:#fff!important}.files-destination-actions button:disabled{opacity:.4;cursor:not-allowed}
+
+/* Almacenamiento V2: priorizar discos y particiones */
+#storageView #storageSummary{display:none!important}
+#storageView .disk-health-rows{grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:16px}
+#storageView .disk-health-card{padding:22px;border-radius:12px}
+#storageView .disk-health-card small{font-size:10px}
+#storageView .disk-health-card b{font-size:14px;margin:7px 0}
+#storageView .disk-health-card span{font-size:10px;line-height:1.6}
+#storageView .disk-health-state{font-size:11px;padding:8px 12px}
+#storageView .disk-partitions{margin-top:17px;padding-top:11px}
+#storageView .disk-partition{grid-template-columns:125px 105px 100px 1fr;padding:10px 5px}
+#storageView .disk-partition b{font-size:11px}
+#storageView .disk-partition span{font-size:10px}
+#storageView .disk-partitions-empty{font-size:10px}
+@media(max-width:900px){#storageView .disk-health-rows{grid-template-columns:1fr}}
