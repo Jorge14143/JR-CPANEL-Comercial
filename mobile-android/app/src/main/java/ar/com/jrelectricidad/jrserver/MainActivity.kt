@@ -180,6 +180,7 @@ fun JRServerApp() {
  Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text(s.name,style=MaterialTheme.typography.titleMedium);Text(s.host,style=MaterialTheme.typography.bodySmall)};Text(if(s.online)"● ONLINE" else "● OFFLINE",color=if(s.online)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)}
   if(s.online){Spacer(Modifier.height(10.dp));val parts=buildList{if(s.cpu!=null)add("CPU "+s.cpu+"%");if(s.ram!=null)add("RAM "+s.ram+"%");if(s.disk!=null)add("Disco "+s.disk+"%");if(s.temp!=null)add(s.temp+" °C");if(s.latency!=null)add(s.latency.toString()+" ms")};if(parts.isNotEmpty())Text(parts.joinToString(" · "),style=MaterialTheme.typography.bodySmall)}
+  }
  }
 }
 @Composable fun IncidentList(items:List<IncidentState>){
