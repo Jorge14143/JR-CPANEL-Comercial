@@ -56,13 +56,14 @@ class MainActivity:ComponentActivity(){
   items(state.servers.take(3)){s->ServerCard(s)}}
   if(tab==0)item{Text("Alertas activas: "+state.alerts)}\n }\n }\n}
 @Composable fun PairScreen(done:()->Unit){
- var user by remember{mutableStateOf("")};var pass by remember{mutableStateOf("")};var code by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
+ var panel by remember{mutableStateOf(MobileApi.panelUrl())};var user by remember{mutableStateOf("")};var pass by remember{mutableStateOf("")};var code by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
  Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center){
   Text("JR SERVER",style=MaterialTheme.typography.headlineLarge);Text("Vincular este teléfono",style=MaterialTheme.typography.titleMedium);Spacer(Modifier.height(20.dp))
+  OutlinedTextField(panel,{panel=it},label={Text("URL del panel")},placeholder={Text("https://panel.ejemplo.com")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp))
   OutlinedTextField(user,{user=it},label={Text("Usuario")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp))
   OutlinedTextField(pass,{pass=it},label={Text("Contraseña")},visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp))
   OutlinedTextField(code,{code=it.filter(Char::isDigit).take(6)},label={Text("Código 2FA")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(12.dp))
-  Button(onClick={busy=true;error=null;MobileApi.pair(user,pass,code){ok,msg->busy=false;if(ok){MonitorScheduler.start(MobileApi.appContext());done()}else error=msg}},enabled=!busy&&user.isNotBlank()&&pass.isNotBlank()&&code.length==6,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Vinculando…" else "VINCULAR")}
+  Button(onClick={busy=true;error=null;MobileApi.pair(panel,user,pass,code){ok,msg->busy=false;if(ok){MonitorScheduler.start(MobileApi.appContext());done()}else error=msg}},enabled=!busy&&panel.isNotBlank()&&user.isNotBlank()&&pass.isNotBlank()&&code.length==6,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Vinculando…" else "VINCULAR")}
   error?.let{Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(top=10.dp))}
  }
 }
@@ -88,18 +89,20 @@ class MainActivity:ComponentActivity(){
 @Composable fun Metric(label:String,value:String,modifier:Modifier=Modifier){Card(modifier){Column(Modifier.padding(14.dp)){Text(label,style=MaterialTheme.typography.labelSmall);Text(value,style=MaterialTheme.typography.titleLarge)}}}
 
 object MobileApi{
- private const val BASE_URL="https://jrserver.jrelectricidad.com.ar";private val client=OkHttpClient();private lateinit var context:Context
+ private const val DEFAULT_URL="https://jrserver.jrelectricidad.com.ar";private val client=OkHttpClient();private lateinit var context:Context
  fun init(c:Context){context=c.applicationContext};fun appContext()=context
  private fun prefs()=context.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE)
+ fun panelUrl()=(prefs().getString("panel_url",DEFAULT_URL)?:DEFAULT_URL).trimEnd('/')
+ private fun normalizeUrl(v:String):String{var x=v.trim().trimEnd('/');if(!x.startsWith("https://")&&!x.startsWith("http://"))x="https://"+x;return x}
  private fun token()=prefs().getString("token","")?:"";fun hasToken()=token().isNotBlank()
  private fun saveToken(value:String){prefs().edit().putString("token",value).apply()}
- fun pair(user:String,pass:String,code:String,done:(Boolean,String)->Unit){
+ fun pair(panel:String,user:String,pass:String,code:String,done:(Boolean,String)->Unit){
   val json=JSONObject().put("username",user).put("password",pass).put("code",code).put("deviceName",Build.MANUFACTURER+" "+Build.MODEL).toString()
-  val req=Request.Builder().url(BASE_URL+"/api/mobile/v1/pair").post(json.toRequestBody("application/json".toMediaType())).build()
-  client.newCall(req).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(false,"No se pudo conectar");override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");if(it.isSuccessful&&j.optString("token").isNotBlank()){saveToken(j.getString("token"));done(true,"")}else done(false,"Credenciales o 2FA incorrectos")}catch(e:Exception){done(false,"Respuesta no válida")}}}})
+  val base=normalizeUrl(panel);val req=Request.Builder().url(base+"/api/mobile/v1/pair").post(json.toRequestBody("application/json".toMediaType())).build()
+  client.newCall(req).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(false,"No se pudo conectar");override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");if(it.isSuccessful&&j.optString("token").isNotBlank()){prefs().edit().putString("panel_url",base).apply();saveToken(j.getString("token"));done(true,"")}else done(false,"Credenciales o 2FA incorrectos")}catch(e:Exception){done(false,"Respuesta no válida")}}}})
  }
- fun statusJson(done:(JSONObject?)->Unit){val b=Request.Builder().url(BASE_URL+"/api/mobile/v1/status");val t=token();if(t.isNotBlank())b.header("Authorization","Bearer "+t);client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(null);override fun onResponse(c:Call,r:Response){r.use{done(if(it.isSuccessful)runCatching{JSONObject(it.body?.string()?:"{}")}.getOrNull() else null)}}})}
- fun incidents(done:(List<IncidentState>)->Unit){val b=Request.Builder().url(BASE_URL+"/api/mobile/v1/incidents?limit=100");val t=token();if(t.isNotBlank())b.header("Authorization","Bearer "+t);client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(emptyList());override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");val a=j.optJSONArray("history");val out=buildList{if(a!=null)for(i in a.length()-1 downTo 0){val x=a.getJSONObject(i);add(IncidentState(x.optString("event"),x.optString("server"),x.optString("title"),x.optString("level"),x.optString("time")))}};done(out)}catch(e:Exception){done(emptyList())}}}})}
+ fun statusJson(done:(JSONObject?)->Unit){val b=Request.Builder().url(panelUrl()+"/api/mobile/v1/status");val t=token();if(t.isNotBlank())b.header("Authorization","Bearer "+t);client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(null);override fun onResponse(c:Call,r:Response){r.use{done(if(it.isSuccessful)runCatching{JSONObject(it.body?.string()?:"{}")}.getOrNull() else null)}}})}
+ fun incidents(done:(List<IncidentState>)->Unit){val b=Request.Builder().url(panelUrl()+"/api/mobile/v1/incidents?limit=100");val t=token();if(t.isNotBlank())b.header("Authorization","Bearer "+t);client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(emptyList());override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");val a=j.optJSONArray("history");val out=buildList{if(a!=null)for(i in a.length()-1 downTo 0){val x=a.getJSONObject(i);add(IncidentState(x.optString("event"),x.optString("server"),x.optString("title"),x.optString("level"),x.optString("time")))}};done(out)}catch(e:Exception){done(emptyList())}}}})}
  fun load(done:(MonitorState)->Unit)=statusJson{j->if(j==null){done(MonitorState(level="critical",error="No se pudo consultar el panel"));return@statusJson};try{val summary=j.getJSONObject("summary");val local=j.getJSONObject("local");val arr=j.getJSONArray("servers");val servers=buildList{for(i in 0 until arr.length()){val x=arr.getJSONObject(i);add(ServerState(x.optString("name"),x.optBoolean("online"),x.optString("level"),x.optString("host"),if(x.has("cpuPercent"))x.optInt("cpuPercent") else null,if(x.has("memoryPercent"))x.optInt("memoryPercent") else null,if(x.has("diskPercent"))x.optInt("diskPercent") else null,if(x.has("temperature")&&!x.isNull("temperature"))x.optDouble("temperature").toString() else null,if(x.has("uptime"))x.optLong("uptime") else null,if(x.has("latencyMs")&&!x.isNull("latencyMs"))x.optInt("latencyMs") else null))}};done(MonitorState(summary.optString("level"),local.optInt("cpuPercent"),local.optInt("memoryPercent"),local.optInt("diskPercent"),if(local.isNull("temperature"))"--" else local.optDouble("temperature").toString(),summary.optInt("alertCount"),servers))}catch(e:Exception){done(MonitorState(level="critical",error="Respuesta no válida"))}}
 }
 
