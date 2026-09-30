@@ -8,6 +8,22 @@ def run(args):
     except Exception:
         return ""
 
+def partitions():
+    raw=run(["/usr/bin/lsblk","-b","-J","-o","NAME,PATH,TYPE,SIZE,FSTYPE,MOUNTPOINTS,PKNAME"])
+    try:
+        data=json.loads(raw)
+    except Exception:
+        return {}
+    found={}
+    def walk(items):
+        for x in items or []:
+            if x.get("type")=="disk":
+                found[x.get("path") or ("/dev/"+str(x.get("name","")))] = x.get("children",[]) or []
+            walk(x.get("children",[]))
+    walk(data.get("blockdevices",[]))
+    return found
+
+parts_by_disk=partitions()
 scan=run(["/usr/sbin/smartctl","--scan-open","-j"])
 try:
     devices=json.loads(scan).get("devices",[])
@@ -43,5 +59,11 @@ for item in devices:
         status="good"
     else:
         status="unknown"
-    out.append({"device":dev,"model":model,"serial":serial,"bytes":cap,"temperature":temp,"powerOnHours":poh,"reallocated":reallocated,"pending":pending,"uncorrectable":uncorrectable,"status":status})
+    parts=[]
+    for p in parts_by_disk.get(dev,[]):
+        if p.get("type") not in ("part","lvm","crypt"): continue
+        mounts=p.get("mountpoints") or []
+        if isinstance(mounts,str): mounts=[mounts]
+        parts.append({"device":p.get("path") or ("/dev/"+str(p.get("name",""))),"bytes":p.get("size"),"fstype":p.get("fstype") or "—","mounts":[m for m in mounts if m]})
+    out.append({"device":dev,"model":model,"serial":serial,"bytes":cap,"temperature":temp,"powerOnHours":poh,"reallocated":reallocated,"pending":pending,"uncorrectable":uncorrectable,"status":status,"partitions":parts})
 print(json.dumps({"disks":out},ensure_ascii=False))
