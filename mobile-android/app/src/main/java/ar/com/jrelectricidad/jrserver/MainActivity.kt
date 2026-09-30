@@ -79,20 +79,20 @@ class MainActivity:FragmentActivity(){
  Scaffold(containerColor=Navy,bottomBar={BottomNav(tab,state.alerts){tab=it}}){pad->
   Box(Modifier.padding(pad).fillMaxSize()){
    when(tab){
-    1->ServerList(state.servers){selected=it}
-    2->IncidentList(incidents)
-    3->SettingsScreen(onDisconnect={MobileApi.disconnect();paired=false})
-    else->Dashboard(state,overview,refreshing,onRefresh={refresh()},onServer={selected=it},onAlerts={tab=2})
+    1->IncidentList(incidents)
+    2->ActionsScreen(overview,onRefresh={refresh()})
+    3->IncidentHistory(incidents)
+    else->Dashboard(state,overview,refreshing,onRefresh={refresh()},onServer={selected=it},onAlerts={tab=1})
    }
   }
  }
 }
 
 @Composable fun BottomNav(tab:Int,alerts:Int,onTab:(Int)->Unit){
- val icons=listOf(Icons.Default.Home,Icons.Default.Dns,Icons.Default.Notifications,Icons.Default.Settings)
- val labels=listOf("Inicio","Servidores","Alertas","Ajustes")
- NavigationBar(containerColor=Color(0xFF081522),tonalElevation=10.dp){
-  labels.indices.forEach{i->NavigationBarItem(selected=tab==i,onClick={onTab(i)},icon={BadgedBox(badge={if(i==2&&alerts>0)Badge{Text(alerts.toString())}}){Icon(icons[i],labels[i])}},label={Text(labels[i])},colors=NavigationBarItemDefaults.colors(selectedIconColor=Cyan,selectedTextColor=Cyan,unselectedIconColor=Muted,unselectedTextColor=Muted,indicatorColor=Panel2))}
+ val icons=listOf(Icons.Default.Home,Icons.Default.Notifications,Icons.Default.Bolt,Icons.Default.History)
+ val labels=listOf("Inicio","Alertas","Acciones","Historial")
+ NavigationBar(containerColor=Color(0xFF071421),tonalElevation=12.dp){
+  labels.indices.forEach{i->NavigationBarItem(selected=tab==i,onClick={onTab(i)},icon={BadgedBox(badge={if(i==1&&alerts>0)Badge(containerColor=Red){Text(alerts.toString())}}){Icon(icons[i],labels[i],modifier=Modifier.size(23.dp))}},label={Text(labels[i],fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=Blue,selectedTextColor=Blue,unselectedIconColor=Muted,unselectedTextColor=Muted,indicatorColor=Color(0xFF10263A)))}
  }
 }
 
@@ -104,20 +104,30 @@ class MainActivity:FragmentActivity(){
 }
 
 @Composable fun Dashboard(state:MonitorState,overview:MobileOverview,refreshing:Boolean,onRefresh:()->Unit,onServer:(ServerState)->Unit,onAlerts:()->Unit){
- LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-  item{Header("JR SERVER","Monitor móvil",if(refreshing)"…" else "ACTUALIZAR",onRefresh)}
-  item{StatusHero(state)}
-  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){Gauge("CPU",state.cpu,Blue,Modifier.weight(1f));Gauge("RAM",state.ram,Green,Modifier.weight(1f))}}
-  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){Gauge("DISCO",state.disk,Orange,Modifier.weight(1f));Gauge("TEMP",state.temp.toDoubleOrNull()?.toInt()?:0,Purple,Modifier.weight(1f),if(state.temp=="--")"--" else state.temp+"°C")}}
-  item{SectionTitle("TRÁFICO DE RED")}
-  item{Card(colors=CardDefaults.cardColors(containerColor=Panel2),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(16.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text("↓ ENTRADA",color=Muted,fontSize=10.sp);Text(formatRate(overview.rx),color=Green,fontWeight=FontWeight.Bold,fontSize=18.sp)};Column(horizontalAlignment=Alignment.End){Text("↑ SALIDA",color=Muted,fontSize=10.sp);Text(formatRate(overview.tx),color=Blue,fontWeight=FontWeight.Bold,fontSize=18.sp)} };Text("Interfaz: "+overview.iface,Modifier.padding(start=16.dp,bottom=14.dp),color=Muted,fontSize=11.sp)}}
-  item{SectionTitle("SALUD WEB")}
-  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){MiniMetric("WEBS",overview.webOk.toString()+"/"+overview.webTotal,if(overview.webOk==overview.webTotal)Green else Red,Modifier.weight(1f));MiniMetric("LATENCIA",overview.latency.toString()+" ms",Blue,Modifier.weight(1f));MiniMetric("SSL",overview.sslDays?.let{it.toString()+" días"}?:"--",if((overview.sslDays?:99)<15)Orange else Green,Modifier.weight(1f))}}
-  item{SectionTitle("ACCIONES RÁPIDAS")}
+ LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=14.dp,bottom=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+  item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("JR",fontSize=32.sp,fontWeight=FontWeight.Black,color=Color.White);Spacer(Modifier.width(10.dp));Text("Server Mobile",fontSize=16.sp,fontWeight=FontWeight.Medium,color=Color.White);Spacer(Modifier.weight(1f));BadgedBox(badge={if(state.alerts>0)Badge(containerColor=Red){Text(state.alerts.toString())}}){IconButton(onClick=onAlerts){Icon(Icons.Default.Notifications,"Alertas",tint=Color(0xFFD9E6F5))}};IconButton(onClick=onRefresh){Icon(Icons.Default.Settings,"Actualizar",tint=Color(0xFFD9E6F5))}}}
+  item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){Text("Mis servidores",fontSize=22.sp,fontWeight=FontWeight.Bold);FilledIconButton(onClick=onRefresh,colors=IconButtonDefaults.filledIconButtonColors(containerColor=Panel2)){Icon(Icons.Default.Add,"Actualizar",tint=Color.White)}}}
+  if(state.servers.isEmpty()) item{Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Text("Esperando servidores…",Modifier.padding(20.dp),color=Muted)}}
+  items(state.servers){ServerCard(it){onServer(it)}}
+  item{SectionTitle("SALUD GENERAL")}
+  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){MiniMetric("WEBS",overview.webOk.toString()+"/"+overview.webTotal,if(overview.webOk==overview.webTotal&&overview.webTotal>0)Green else Orange,Modifier.weight(1f));MiniMetric("LATENCIA",overview.latency.toString()+" ms",Blue,Modifier.weight(1f));MiniMetric("SSL",overview.sslDays?.let{it.toString()+" días"}?:"--",if((overview.sslDays?:99)<15)Orange else Green,Modifier.weight(1f))}}
+ }
+}
+
+@Composable fun ActionsScreen(overview:MobileOverview,onRefresh:()->Unit){
+ LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+  item{Text("Acciones rápidas",fontSize=25.sp,fontWeight=FontWeight.Bold)}
+  item{Text("Operaciones seguras del servidor",color=Muted,fontSize=12.sp)}
   item{QuickActions(overview,onRefresh)}
-  item{SectionTitle("SERVIDORES")}
-  items(state.servers.take(3)){ServerCard(it){onServer(it)}}
-  if(state.alerts>0)item{Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF351823)),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(Red)),modifier=Modifier.fillMaxWidth().clickable{onAlerts()}){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.Warning,"Alerta",tint=Red,modifier=Modifier.size(28.dp));Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text("${state.alerts} alerta${if(state.alerts==1)"" else "s"} activa${if(state.alerts==1)"" else "s"}",fontWeight=FontWeight.Bold);Text("Revisar detalles",color=Muted)};Icon(Icons.Default.ChevronRight,"Abrir",tint=Muted)}}}
+  item{Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF25154A)),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.Description,"Logs",tint=Purple,modifier=Modifier.size(28.dp));Spacer(Modifier.width(12.dp));Column{Text("Ver logs del incidente",fontWeight=FontWeight.Bold);Text("Últimas líneas relevantes del servidor",color=Muted,fontSize=11.sp)}}}}
+ }
+}
+
+@Composable fun IncidentHistory(data:List<IncidentState>){
+ LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+  item{Text("Historial",fontSize=25.sp,fontWeight=FontWeight.Bold)}
+  if(data.isEmpty()) item{Text("No hay incidentes registrados",color=Muted)}
+  items(data){x->Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Icon(if(x.event=="resolved")Icons.Default.CheckCircle else Icons.Default.Warning,"Estado",tint=if(x.event=="resolved")Green else Orange);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(x.title,fontWeight=FontWeight.Bold);Text(x.server+" · "+x.time,color=Muted,fontSize=11.sp)}}}}
  }
 }
 
@@ -151,8 +161,15 @@ fun formatRate(v:Long):String{val b=v.toDouble();return when{b>=125000000->"%.1f
 }
 
 @Composable fun ServerCard(s:ServerState,onClick:()->Unit={}){
- Card(Modifier.fillMaxWidth().clickable{onClick()},colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(16.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text(s.name,fontWeight=FontWeight.Bold,fontSize=17.sp);Text(s.host,color=Muted,fontSize=12.sp)};Text(if(s.online)"● ONLINE" else "● OFFLINE",color=if(s.online)Green else Red,fontWeight=FontWeight.Bold,fontSize=12.sp)};if(s.online){Spacer(Modifier.height(12.dp));Text(listOfNotNull(s.cpu?.let{"CPU ${it}%"},s.ram?.let{"RAM ${it}%"},s.disk?.let{"DISCO ${it}%"},s.temp?.let{"TEMP ${it}°C"}).joinToString("   "),color=Muted,fontSize=12.sp);s.uptime?.let{Text("Uptime: "+formatUptime(it),color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=8.dp))}}}}
+ val accent=if(s.online)Green else Red
+ Card(Modifier.fillMaxWidth().clickable{onClick()},shape=RoundedCornerShape(16.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFF0C1D2D)),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(accent.copy(alpha=.55f)))){
+  Column(Modifier.padding(16.dp)){
+   Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(42.dp).background(Blue.copy(alpha=.18f),RoundedCornerShape(11.dp)),contentAlignment=Alignment.Center){Icon(Icons.Default.Dns,"Servidor",tint=Blue)};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(s.name,fontWeight=FontWeight.Bold,fontSize=15.sp);Text(s.host,color=Muted,fontSize=11.sp)};Surface(shape=RoundedCornerShape(12.dp),color=accent.copy(alpha=.18f)){Text(if(s.online)"ONLINE" else "OFFLINE",Modifier.padding(horizontal=10.dp,vertical=5.dp),color=accent,fontWeight=FontWeight.Bold,fontSize=10.sp)}}
+   if(s.online){Spacer(Modifier.height(14.dp));Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){ServerStat("CPU",s.cpu,Blue,Modifier.weight(1f));ServerStat("RAM",s.ram,Green,Modifier.weight(1f));ServerStat("DISCO",s.disk,Orange,Modifier.weight(1f));Icon(Icons.Default.ArrowForward,"Abrir",tint=Muted,modifier=Modifier.align(Alignment.CenterVertically))}}
+  }
+ }
 }
+@Composable fun ServerStat(label:String,value:Int?,color:Color,modifier:Modifier){Column(modifier){Row(verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(9.dp).background(color,RoundedCornerShape(3.dp)));Spacer(Modifier.width(5.dp));Text(label,color=Muted,fontSize=9.sp)};Text(value?.let{it.toString()+"%"}?:"--",fontWeight=FontWeight.Bold,fontSize=12.sp)}}
 
 @Composable fun ServerDetail(server:ServerState,services:List<ServiceState>,systemServices:List<SystemServiceState>,onBack:()->Unit,onRefresh:()->Unit){
  var serviceTab by remember{mutableStateOf(true)};var remoteServices by remember{mutableStateOf(emptyList<SystemServiceState>())};val context=LocalContext.current
