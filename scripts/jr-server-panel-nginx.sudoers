@@ -1,3 +1,3 @@
 # JR Server Panel - permiso mínimo para validar/recargar Nginx
 # Instalar como /etc/sudoers.d/jr-server-panel-nginx con chmod 440.
-jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-nginx test, /usr/local/sbin/jr-panel-nginx reload, /usr/local/sbin/jr-panel-nginx access-log, /usr/local/sbin/jr-panel-nginx error-log
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-nginx test, /usr/local/sbin/jr-panel-nginx reload, /usr/local/sbin/jr-panel-nginx access-log, /usr/local/sbin/jr-panel-nginx error-log, /usr/local/sbin/jr-panel-nginx request-count
