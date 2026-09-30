@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -41,10 +42,11 @@ class MainActivity:ComponentActivity(){
 }
 
 @Composable fun JRServerApp(){
+ val context=LocalContext.current
  var state by remember{mutableStateOf(MonitorState())};var refreshing by remember{mutableStateOf(false)};var incidents by remember{mutableStateOf(listOf<IncidentState>())};var tab by remember{mutableIntStateOf(0)};var showSettings by remember{mutableStateOf(false)};var paired by remember{mutableStateOf(MobileApi.hasToken())}
  if(!paired){PairScreen{paired=true};return}
  if(showSettings){SettingsScreen(onBack={showSettings=false},onDisconnect={MobileApi.disconnect();paired=false;showSettings=false});return}
- LaunchedEffect(Unit){MobileApi.load{state=it};MobileApi.incidents{incidents=it}}
+ LaunchedEffect(Unit){MobileApi.load{v->(context as? android.app.Activity)?.runOnUiThread{state=v}};MobileApi.incidents{v->(context as? android.app.Activity)?.runOnUiThread{incidents=v}}}
  Column(Modifier.fillMaxSize()){
   NavigationBar {
    NavigationBarItem(selected=tab==0,onClick={tab=0},icon={Text("◉")},label={Text("Estado")})
@@ -55,7 +57,7 @@ class MainActivity:ComponentActivity(){
   if(tab==2){IncidentList(incidents);return@Column}
   if(tab==1){ServerList(state.servers);return@Column}
   LazyColumn(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text("JR SERVER",style=MaterialTheme.typography.headlineMedium);Text("Monitor móvil",color=MaterialTheme.colorScheme.primary)};TextButton(onClick={refreshing=true;MobileApi.load{state=it;refreshing=false};MobileApi.incidents{incidents=it}}){Text(if(refreshing)"…" else "ACTUALIZAR")}}}
+  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text("JR SERVER",style=MaterialTheme.typography.headlineMedium);Text("Monitor móvil",color=MaterialTheme.colorScheme.primary)};TextButton(onClick={refreshing=true;MobileApi.load{v->(context as? android.app.Activity)?.runOnUiThread{state=v;refreshing=false}};MobileApi.incidents{v->(context as? android.app.Activity)?.runOnUiThread{incidents=v}}}){Text(if(refreshing)"…" else "ACTUALIZAR")}}}
   item{Card(Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp)){Text(when(state.level){"ok"->"● TODO CORRECTO";"warning"->"● ADVERTENCIA";"critical"->"● FALLA DETECTADA";else->"● CONECTANDO…"},style=MaterialTheme.typography.titleLarge);state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}}}
   item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){Metric("CPU",state.cpu.toString()+"%",Modifier.weight(1f));Metric("RAM",state.ram.toString()+"%",Modifier.weight(1f));Metric("DISCO",state.disk.toString()+"%",Modifier.weight(1f))}}
   item{Metric("TEMPERATURA",if(state.temp=="--")"--" else state.temp+" °C",Modifier.fillMaxWidth())}
@@ -76,6 +78,7 @@ class MainActivity:ComponentActivity(){
  }
 }
 @Composable fun PairScreen(done:()->Unit){
+ val context=LocalContext.current
  var panel by remember{mutableStateOf(MobileApi.panelUrl())};var user by remember{mutableStateOf("")};var pass by remember{mutableStateOf("")};var code by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
  Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center){
   Text("JR SERVER",style=MaterialTheme.typography.headlineLarge);Text("Vincular este teléfono",style=MaterialTheme.typography.titleMedium);Spacer(Modifier.height(20.dp))
@@ -83,7 +86,7 @@ class MainActivity:ComponentActivity(){
   OutlinedTextField(user,{user=it},label={Text("Usuario")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp))
   OutlinedTextField(pass,{pass=it},label={Text("Contraseña")},visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp))
   OutlinedTextField(code,{code=it.filter(Char::isDigit).take(6)},label={Text("Código 2FA")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(12.dp))
-  Button(onClick={busy=true;error=null;MobileApi.pair(panel,user,pass,code){ok,msg->busy=false;if(ok){MonitorScheduler.start(MobileApi.appContext());done()}else error=msg}},enabled=!busy&&panel.isNotBlank()&&user.isNotBlank()&&pass.isNotBlank()&&code.length==6,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Vinculando…" else "VINCULAR")}
+  Button(onClick={busy=true;error=null;MobileApi.pair(panel,user,pass,code){ok,msg->(context as? android.app.Activity)?.runOnUiThread{busy=false;if(ok){MonitorScheduler.start(MobileApi.appContext());done()}else error=msg}}},enabled=!busy&&panel.isNotBlank()&&user.isNotBlank()&&pass.isNotBlank()&&code.length==6,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Vinculando…" else "VINCULAR")}
   error?.let{Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(top=10.dp))}
  }
 }
