@@ -299,7 +299,7 @@ const v2EscLines=a=>(a||[]).map(x=>"<div class=\"ops-line\">"+esc(typeof x==="st
 async function v2Json(url){const r=await fetch(url,{cache:"no-store"}),d=await r.json();if(!r.ok)throw Error(d.error||"unavailable");return d}
 async function loadOpsV2(tab="diagnostics",embedded=false){const c=$("opsV2Content"),t=$("opsV2Title"),st=$("opsV2State");st.textContent="CARGANDO";c.textContent="Consultando servidor...";try{let d;switch(tab){
 case"updates":showView("updates");loadUpdates();return;
-case"git":showView("gitDeploy");loadGitDeploy();return;
+case"git":showView("gitdeploy");loadGitDeploy();return;
 case"terminal":showView("terminal");openTerminal();return;
 case"systemd":d=await v2Json("/api/systemd/v2");t.textContent="SYSTEMD · SERVICIOS";c.innerHTML=d.services.map(x=>`<div class="ops-card"><b>${esc(x.label||x.name)}</b><strong class="${x.active?"ok":"bad"}">${x.active?"ACTIVO":"INACTIVO"}</strong><span>${esc(x.enabled)}</span></div>`).join("");break;
 case"processes":d=await v2Json("/api/processes/v2");t.textContent="PROCESOS LINUX";c.innerHTML="<pre>"+esc(d.lines.join("\n"))+"</pre>";break;
