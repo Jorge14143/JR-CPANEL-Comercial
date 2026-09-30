@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -35,7 +35,26 @@ jobs:
           gradle-version: "8.9"
 
       - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
+        run: |
+          set -o pipefail
+          gradle --no-daemon assembleDebug --stacktrace --warning-mode all 2>&1 | tee build.log
+
+      - name: Show build failure summary
+        if: failure()
+        run: |
+          echo "===== JR SERVER MOBILE - BUILD ERROR ====="
+          grep -n -E "FAILURE:|What went wrong:|Execution failed|e: |error:|Caused by:" build.log | tail -n 120 || true
+          echo "===== LAST 160 LOG LINES ====="
+          tail -n 160 build.log || true
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: JR-Server-Mobile-build-log
+          path: mobile-android/build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/JR-Server-Mobile-debug.apk
