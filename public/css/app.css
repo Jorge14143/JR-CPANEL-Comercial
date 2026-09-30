@@ -594,3 +594,14 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 #storageView .disk-partition span{font-size:10px}
 #storageView .disk-partitions-empty{font-size:10px}
 @media(max-width:900px){#storageView .disk-health-rows{grid-template-columns:1fr}}
+
+/* Almacenamiento V2: legibilidad escritorio */
+#storageView .disk-health-card small{font-size:12px!important}
+#storageView .disk-health-card b{font-size:16px!important}
+#storageView .disk-health-card span{font-size:12px!important}
+#storageView .disk-health-state{font-size:12px!important;padding:9px 13px}
+#storageView .disk-partition{grid-template-columns:135px 110px 110px 1fr;padding:11px 6px}
+#storageView .disk-partition b{font-size:12px!important}
+#storageView .disk-partition span{font-size:11px!important}
+#storageView .storage-location-row b{font-size:12px}
+#storageView .storage-location-row span{font-size:11px}
