@@ -42,7 +42,7 @@ def services():
 
 def send():
     body=json.dumps({"hostname":socket.gethostname(),"metrics":metrics(),"services":services()}).encode()
-    req=urllib.request.Request(PANEL+"/api/agent/v1/checkin",data=body,headers={"Authorization":"Bearer "+TOKEN,"Content-Type":"application/json"},method="POST")
+    req=urllib.request.Request(PANEL+"/api/agent/v1/checkin",data=body,headers={"Authorization":"Bearer "+TOKEN,"Content-Type":"application/json","Accept":"application/json","User-Agent":"JR-Server-Agent/1.0"},method="POST")
     with urllib.request.urlopen(req,timeout=10) as r:r.read()
 
 if not PANEL.startswith("https://") or not TOKEN:raise SystemExit("JR_AGENT_PANEL/JR_AGENT_TOKEN faltan")
