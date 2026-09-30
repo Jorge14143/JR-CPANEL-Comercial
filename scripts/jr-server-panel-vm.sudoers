@@ -1,5 +1,8 @@
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm list
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm info *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm uptime *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm mac *
+jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm vnc *
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm domstats *
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm ip *
 jorge ALL=(root) NOPASSWD: /usr/local/sbin/jr-panel-vm start *
