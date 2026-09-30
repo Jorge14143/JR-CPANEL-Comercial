@@ -40,14 +40,14 @@ class MainActivity:ComponentActivity(){
 }
 
 @Composable fun JRServerApp(){
- var state by remember{mutableStateOf(MonitorState())};var refreshing by remember{mutableStateOf(false)};var incidents by remember{mutableStateOf(listOf<IncidentState>())};var tab by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())}
- if(!paired){PairScreen{paired=true};return}
+ var state by remember{mutableStateOf(MonitorState())};var refreshing by remember{mutableStateOf(false)};var incidents by remember{mutableStateOf(listOf<IncidentState>())};var tab by remember{mutableIntStateOf(0)};var showSettings by remember{mutableStateOf(false)};var paired by remember{mutableStateOf(MobileApi.hasToken())}
+ if(!paired){PairScreen{paired=true};return}\n if(showSettings){SettingsScreen(onBack={showSettings=false},onDisconnect={MobileApi.disconnect();paired=false;showSettings=false});return}
  LaunchedEffect(Unit){MobileApi.load{state=it};MobileApi.incidents{incidents=it}}
  Column(Modifier.fillMaxSize()){
   NavigationBar {
    NavigationBarItem(selected=tab==0,onClick={tab=0},icon={Text("◉")},label={Text("Estado")})
    NavigationBarItem(selected=tab==1,onClick={tab=1},icon={Text("▣")},label={Text("Servidores")})
-   NavigationBarItem(selected=tab==2,onClick={tab=2},icon={Text("!")},label={Text("Alertas")})
+   NavigationBarItem(selected=tab==2,onClick={tab=2},icon={Text("!")},label={Text("Alertas")})\n   NavigationBarItem(selected=false,onClick={showSettings=true},icon={Text("⚙")},label={Text("Ajustes")})
   }
   if(tab==2){IncidentList(incidents);return@Column}\n  if(tab==1){ServerList(state.servers);return@Column}\n  LazyColumn(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
   item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text("JR SERVER",style=MaterialTheme.typography.headlineMedium);Text("Monitor móvil",color=MaterialTheme.colorScheme.primary)};TextButton(onClick={refreshing=true;MobileApi.load{state=it;refreshing=false};MobileApi.incidents{incidents=it}}){Text(if(refreshing)"…" else "ACTUALIZAR")}}}
@@ -57,6 +57,16 @@ class MainActivity:ComponentActivity(){
   item{Text("SERVIDORES",style=MaterialTheme.typography.titleMedium)}
   items(state.servers.take(3)){s->ServerCard(s)}}
   if(tab==0)item{Text("Alertas activas: "+state.alerts)}\n }\n }\n}
+@Composable fun SettingsScreen(onBack:()->Unit,onDisconnect:()->Unit){
+ var confirm by remember{mutableStateOf(false)}
+ Column(Modifier.fillMaxSize().padding(24.dp)){
+  TextButton(onClick=onBack){Text("← VOLVER")}
+  Spacer(Modifier.height(12.dp));Text("AJUSTES",style=MaterialTheme.typography.headlineMedium)
+  Spacer(Modifier.height(20.dp));Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){Text("Panel vinculado",style=MaterialTheme.typography.labelMedium);Text(MobileApi.panelUrl(),style=MaterialTheme.typography.bodyLarge);Spacer(Modifier.height(6.dp));Text("Monitor en segundo plano · cada 15 min",style=MaterialTheme.typography.bodySmall)}}
+  Spacer(Modifier.height(16.dp));OutlinedButton(onClick={confirm=true},modifier=Modifier.fillMaxWidth()){Text("DESVINCULAR ESTE TELÉFONO")}
+  if(confirm)AlertDialog(onDismissRequest={confirm=false},title={Text("Desvincular teléfono")},text={Text("La app dejará de consultar este JR Server Panel hasta que vuelvas a vincularla.")},confirmButton={TextButton(onClick=onDisconnect){Text("DESVINCULAR")}},dismissButton={TextButton(onClick={confirm=false}){Text("CANCELAR")}})
+ }
+}
 @Composable fun PairScreen(done:()->Unit){
  var panel by remember{mutableStateOf(MobileApi.panelUrl())};var user by remember{mutableStateOf("")};var pass by remember{mutableStateOf("")};var code by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
  Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center){
