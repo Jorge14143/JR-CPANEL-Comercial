@@ -295,6 +295,26 @@ function metricNetwork(){const ni=os.networkInterfaces();let iface=null;for(cons
 function metricSample(){const total=os.totalmem(),free=os.freemem(),net=metricNetwork();return{time:new Date().toISOString(),cpu:metricCpuUsage(),ram:Math.round((total-free)/total*100),load:Math.round(os.loadavg()[0]*100)/100,rx:net.rxPerSec||0,tx:net.txPerSec||0}}
 function storeMetric(){try{append(METRICS,metricSample());const st=fs.statSync(METRICS);if(st.size>2*1024*1024){const lines=fs.readFileSync(METRICS,"utf8").trim().split("\n").slice(-2880);fs.writeFileSync(METRICS,lines.join("\n")+"\n",{mode:0o600})}}catch{}}
 const metricTimer=setInterval(storeMetric,60000),metricWarmup=setTimeout(storeMetric,5000);metricTimer.unref?.();metricWarmup.unref?.();
+async function mobileV1Status(){
+  const total=os.totalmem(),free=os.freemem(),cpu=cpuUsage(),temp=temperature(),net=network();
+  const [d,processes,nginx,mysql,fail2ban,ddns,remoteResults]=await Promise.all([
+    disk(),pm2(),active("nginx"),active("mysql"),active("fail2ban"),active("jr-cloudflare-ddns.timer"),
+    Promise.all(remoteServers().map(probeRemoteServer))
+  ]);
+  const ram=total?Math.round((total-free)/total*100):0;
+  const services={nginx,mysql,fail2ban,ddns,pm2:processes.some(p=>p.status==="online")};
+  const localHealth=health(cpu,ram,d.percent,services,processes,temp);
+  const localAlerts=(localHealth.issues||[]).map(x=>({level:x.severity,title:x.text,serverId:"local",server:"JR Server"}));
+  const remoteAlerts=remoteResults.filter(x=>!x.online).map(x=>({level:"critical",title:"Servidor sin respuesta",detail:String(x.host||""),serverId:x.id,server:x.name}));
+  const servers=[
+    {id:"local",name:"JR Server",host:os.hostname(),local:true,online:true,level:localHealth.level,cpuPercent:cpu,memoryPercent:ram,diskPercent:d.percent,temperature:temp,uptime:os.uptime(),services},
+    ...remoteResults.map(x=>({id:x.id,name:x.name,host:x.host,local:false,online:x.online,level:x.online?"ok":"critical",latencyMs:x.latencyMs,group:x.group||"",location:x.location||""}))
+  ];
+  const alerts=[...localAlerts,...remoteAlerts],level=alerts.some(x=>x.level==="critical")?"critical":alerts.some(x=>x.level==="warning")?"warning":"ok";
+  return{apiVersion:1,product:"JR Server Mobile",generatedAt:new Date().toISOString(),summary:{level,serverCount:servers.length,onlineCount:servers.filter(x=>x.online).length,offlineCount:servers.filter(x=>!x.online).length,alertCount:alerts.length},local:{cpuPercent:cpu,memoryPercent:ram,diskPercent:d.percent,temperature:temp,uptime:os.uptime(),network:{rxPerSec:net.rxPerSec||0,txPerSec:net.txPerSec||0}},servers,alerts};
+}
+app.get("/api/mobile/v1/status",async(req,res)=>{try{res.set("Cache-Control","no-store").json(await mobileV1Status())}catch(e){res.status(500).json({error:"mobile_status_unavailable"})}});
+
 app.get("/api/metrics/v3",(req,res)=>{const n=Number(req.query.limit),raw=Math.min(2880,Math.max(12,Number.isFinite(n)?Math.floor(n):360)),items=readJsonLines(METRICS,raw);res.set("Cache-Control","no-store").json({items,intervalSeconds:60,retention:2880})});
 function metricAnomalies(items){if(items.length<30)return[];const recent=items.slice(-10),base=items.slice(-30,-10),avg=(a,k)=>a.length?a.reduce((n,x)=>n+(Number(x[k])||0),0)/a.length:0,an=[];for(const k of ["cpu","ram","load"]){const b=avg(base,k),r=avg(recent,k),delta=r-b,limit=k==="load"?1.5:20;if(delta>=limit)an.push({metric:k,level:delta>=limit*1.75?"critical":"warning",baseline:Math.round(b*10)/10,current:Math.round(r*10)/10,delta:Math.round(delta*10)/10})}return an}
 app.get("/api/anomalies/v3",(req,res)=>{const items=readJsonLines(METRICS,360),anomalies=metricAnomalies(items);res.set("Cache-Control","no-store").json({anomalies,enoughData:items.length>=30,samples:items.length,time:new Date().toISOString()})});
