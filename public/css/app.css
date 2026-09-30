@@ -419,3 +419,6 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 .vm-iso-tools{display:flex;align-items:center;gap:9px;margin-top:3px}.vm-iso-tools button{min-height:31px!important;padding:0 11px!important;font-size:8px!important;border-color:#168fff!important;color:#9fd7ff!important}.vm-iso-tools span{min-width:0;color:#6f9bbd;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vm-iso-tools button:disabled{opacity:.5;cursor:wait}
 
 .vm-iso-tools #vmIsoUrl{flex:1 1 280px;min-width:220px;min-height:31px;padding:0 10px;border:1px solid #1d638e;border-radius:6px;background:#061c2b;color:#dff3ff;font-size:9px}.vm-iso-tools{flex-wrap:wrap}
+
+/* V3 · Auditoría */
+.audit-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}.audit-toolbar input,.audit-toolbar select{background:#0b111b;border:1px solid #263347;color:#dce8f8;border-radius:8px;padding:9px 11px;min-height:38px}.audit-toolbar input{min-width:180px}.audit-toolbar button{min-height:38px}.audit-toolbar span{margin-left:auto;font-size:12px;color:#8fa3bd}.audit-box pre{max-height:430px;overflow:auto}
