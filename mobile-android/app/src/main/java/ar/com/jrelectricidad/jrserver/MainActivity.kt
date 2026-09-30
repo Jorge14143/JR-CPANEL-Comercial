@@ -27,7 +27,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 data class ServerState(val name:String,val online:Boolean,val level:String,val host:String)
-data class MonitorState(val level:String="loading",val cpu:Int=0,val ram:Int=0,val disk:Int=0,val temp:String="--",val alerts:Int=0,val servers:List<ServerState> = emptyList(),val error:String?=null)
+data class IncidentState(val event:String,val server:String,val title:String,val level:String,val time:String)\ndata class MonitorState(val level:String="loading",val cpu:Int=0,val ram:Int=0,val disk:Int=0,val temp:String="--",val alerts:Int=0,val servers:List<ServerState> = emptyList(),val error:String?=null)
 
 class MainActivity:ComponentActivity(){
  override fun onCreate(savedInstanceState:Bundle?){
@@ -38,19 +38,24 @@ class MainActivity:ComponentActivity(){
 }
 
 @Composable fun JRServerApp(){
- var state by remember{mutableStateOf(MonitorState())};var paired by remember{mutableStateOf(MobileApi.hasToken())}
+ var state by remember{mutableStateOf(MonitorState())};var incidents by remember{mutableStateOf(listOf<IncidentState>())};var tab by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())}
  if(!paired){PairScreen{paired=true};return}
- LaunchedEffect(Unit){MobileApi.load{state=it}}
- LazyColumn(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+ LaunchedEffect(Unit){MobileApi.load{state=it};MobileApi.incidents{incidents=it}}
+ Column(Modifier.fillMaxSize()){
+  NavigationBar {
+   NavigationBarItem(selected=tab==0,onClick={tab=0},icon={Text("◉")},label={Text("Estado")})
+   NavigationBarItem(selected=tab==1,onClick={tab=1},icon={Text("▣")},label={Text("Servidores")})
+   NavigationBarItem(selected=tab==2,onClick={tab=2},icon={Text("!")},label={Text("Alertas")})
+  }
+  if(tab==2){IncidentList(incidents);return@Column}
+  LazyColumn(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
   item{Text("JR SERVER",style=MaterialTheme.typography.headlineMedium);Text("Monitor móvil",color=MaterialTheme.colorScheme.primary)}
   item{Card(Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp)){Text(when(state.level){"ok"->"● TODO CORRECTO";"warning"->"● ADVERTENCIA";"critical"->"● FALLA DETECTADA";else->"● CONECTANDO…"},style=MaterialTheme.typography.titleLarge);state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}}}
   item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){Metric("CPU",state.cpu.toString()+"%",Modifier.weight(1f));Metric("RAM",state.ram.toString()+"%",Modifier.weight(1f));Metric("DISCO",state.disk.toString()+"%",Modifier.weight(1f))}}
   item{Metric("TEMPERATURA",if(state.temp=="--")"--" else state.temp+" °C",Modifier.fillMaxWidth())}
   item{Text("SERVIDORES",style=MaterialTheme.typography.titleMedium)}
   items(state.servers){s->Card(Modifier.fillMaxWidth()){Row(Modifier.padding(16.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text(s.name);Text(s.host,style=MaterialTheme.typography.bodySmall)};Text(if(s.online)"● ONLINE" else "● OFFLINE",color=if(s.online)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)}}}
-  item{Text("Alertas activas: "+state.alerts)}
- }
-}
+  if(tab==0)item{Text("Alertas activas: "+state.alerts)}\n }\n }\n}
 @Composable fun PairScreen(done:()->Unit){
  var user by remember{mutableStateOf("")};var pass by remember{mutableStateOf("")};var code by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
  Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center){
@@ -60,6 +65,13 @@ class MainActivity:ComponentActivity(){
   OutlinedTextField(code,{code=it.filter(Char::isDigit).take(6)},label={Text("Código 2FA")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(12.dp))
   Button(onClick={busy=true;error=null;MobileApi.pair(user,pass,code){ok,msg->busy=false;if(ok){MonitorScheduler.start(MobileApi.appContext());done()}else error=msg}},enabled=!busy&&user.isNotBlank()&&pass.isNotBlank()&&code.length==6,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Vinculando…" else "VINCULAR")}
   error?.let{Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(top=10.dp))}
+ }
+}
+@Composable fun IncidentList(items:List<IncidentState>){
+ LazyColumn(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+  item{Text("ALERTAS E HISTORIAL",style=MaterialTheme.typography.titleLarge)}
+  if(items.isEmpty())item{Card(Modifier.fillMaxWidth()){Text("Sin incidentes registrados",Modifier.padding(18.dp))}}
+  items(items){x->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text((if(x.event=="resolved")"✓ RECUPERADO" else "● "+x.level.uppercase())+" · "+x.server,style=MaterialTheme.typography.titleSmall);Text(x.title);Text(x.time,style=MaterialTheme.typography.bodySmall)}}}
  }
 }
 @Composable fun Metric(label:String,value:String,modifier:Modifier=Modifier){Card(modifier){Column(Modifier.padding(14.dp)){Text(label,style=MaterialTheme.typography.labelSmall);Text(value,style=MaterialTheme.typography.titleLarge)}}}
@@ -76,6 +88,7 @@ object MobileApi{
   client.newCall(req).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(false,"No se pudo conectar");override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");if(it.isSuccessful&&j.optString("token").isNotBlank()){saveToken(j.getString("token"));done(true,"")}else done(false,"Credenciales o 2FA incorrectos")}catch(e:Exception){done(false,"Respuesta no válida")}}}})
  }
  fun statusJson(done:(JSONObject?)->Unit){val b=Request.Builder().url(BASE_URL+"/api/mobile/v1/status");val t=token();if(t.isNotBlank())b.header("Authorization","Bearer "+t);client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(null);override fun onResponse(c:Call,r:Response){r.use{done(if(it.isSuccessful)runCatching{JSONObject(it.body?.string()?:"{}")}.getOrNull() else null)}}})}
+ fun incidents(done:(List<IncidentState>)->Unit){val b=Request.Builder().url(BASE_URL+"/api/mobile/v1/incidents?limit=100");val t=token();if(t.isNotBlank())b.header("Authorization","Bearer "+t);client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(emptyList());override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");val a=j.optJSONArray("history");val out=buildList{if(a!=null)for(i in a.length()-1 downTo 0){val x=a.getJSONObject(i);add(IncidentState(x.optString("event"),x.optString("server"),x.optString("title"),x.optString("level"),x.optString("time")))}};done(out)}catch(e:Exception){done(emptyList())}}}})}
  fun load(done:(MonitorState)->Unit)=statusJson{j->if(j==null){done(MonitorState(level="critical",error="No se pudo consultar el panel"));return@statusJson};try{val summary=j.getJSONObject("summary");val local=j.getJSONObject("local");val arr=j.getJSONArray("servers");val servers=buildList{for(i in 0 until arr.length()){val x=arr.getJSONObject(i);add(ServerState(x.optString("name"),x.optBoolean("online"),x.optString("level"),x.optString("host")))}};done(MonitorState(summary.optString("level"),local.optInt("cpuPercent"),local.optInt("memoryPercent"),local.optInt("diskPercent"),if(local.isNull("temperature"))"--" else local.optDouble("temperature").toString(),summary.optInt("alertCount"),servers))}catch(e:Exception){done(MonitorState(level="critical",error="Respuesta no válida"))}}
 }
 
