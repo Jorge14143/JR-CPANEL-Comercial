@@ -14,6 +14,9 @@ case "${1:-}" in
   error-log)
     exec /usr/bin/tail -n 80 /var/log/nginx/error.log
     ;;
+  request-count)
+    exec /usr/bin/wc -l /var/log/nginx/access.log
+    ;;
   *)
     echo "Accion no permitida" >&2
     exit 64
