@@ -1,0 +1,14 @@
+{
+  "name": "JR Server Panel",
+  "short_name": "JR Server",
+  "description": "Administración y monitoreo de JR Server Panel V3",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#061522",
+  "theme_color": "#071827",
+  "lang": "es-AR",
+  "icons": [
+    {"src":"/jr-server-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
