@@ -455,3 +455,18 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 #dashboardView .v3-metric.net>div:nth-child(2){display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px}
 #dashboardView .v3-metric.net strong{font-size:15px;white-space:nowrap}
 #dashboardView .v3-metric.net span{font-size:10px;padding:0}
+
+
+/* V3 connectivity live-traffic containment · 2026-09-30 */
+#dashboardView .v3-hero-grid{align-items:stretch}
+#dashboardView .v3-chart,
+#dashboardView .v3-connectivity{height:365px;min-height:365px}
+#dashboardView .v3-connectivity{overflow:hidden}
+#dashboardView .v3-connectivity .v3-network-live{margin:4px 14px 6px;padding:7px 9px}
+#dashboardView .v3-connectivity .v3-network-live canvas{height:46px;margin:5px 0}
+#dashboardView .v3-connectivity .v3-provider{margin:0 14px 8px;padding-top:6px}
+@media(min-width:1450px){
+ #dashboardView .v3-chart,
+ #dashboardView .v3-connectivity{height:380px;min-height:380px}
+ #dashboardView .v3-chart canvas{height:285px!important}
+}
