@@ -2,7 +2,7 @@
 require("dotenv").config();
 const express=require("express"),os=require("os"),fs=require("fs"),path=require("path"),crypto=require("crypto"),session=require("express-session"),FileStore=require("session-file-store")(session),{rateLimit}=require("express-rate-limit"),{authenticator}=require("otplib");
 const {execFile}=require("child_process"),{promisify}=require("util"),execFileAsync=promisify(execFile),net=require("net"),dns=require("dns").promises,pty=require("node-pty"),{WebSocketServer}=require("ws"),app=express();
-const HOST=process.env.HOST||"127.0.0.1",PORT=Number(process.env.PORT||3100),DATA=path.join(__dirname,"data"),SESSIONS=path.join(DATA,"sessions"),AUDIT=path.join(DATA,"audit.jsonl"),LOGIN=path.join(DATA,"logins.jsonl"),RECOVERY=path.join(DATA,"recovery-codes.json"),METRICS=path.join(DATA,"metrics.jsonl"),SETTINGS_FILE=path.join(DATA,"settings.json"),SERVERS_FILE=path.join(DATA,"servers.json"),MOBILE_DEVICES_FILE=path.join(DATA,"mobile-devices.json"),ENV_FILE=path.join(__dirname,".env");
+const HOST=process.env.HOST||"127.0.0.1",PORT=Number(process.env.PORT||3100),DATA=path.join(__dirname,"data"),SESSIONS=path.join(DATA,"sessions"),AUDIT=path.join(DATA,"audit.jsonl"),LOGIN=path.join(DATA,"logins.jsonl"),RECOVERY=path.join(DATA,"recovery-codes.json"),METRICS=path.join(DATA,"metrics.jsonl"),SETTINGS_FILE=path.join(DATA,"settings.json"),SERVERS_FILE=path.join(DATA,"servers.json"),MOBILE_DEVICES_FILE=path.join(DATA,"mobile-devices.json"),MOBILE_ALERTS_FILE=path.join(DATA,"mobile-alerts.jsonl"),MOBILE_STATE_FILE=path.join(DATA,"mobile-alert-state.json"),ENV_FILE=path.join(__dirname,".env");
 const SETTINGS_DEFAULTS={sessionHours:8,fileHome:"/home/jorge",uploadLimitMb:10,editorLimitMb:2};
 function loadSettings(){try{return{...SETTINGS_DEFAULTS,...JSON.parse(fs.readFileSync(SETTINGS_FILE,"utf8"))}}catch{return{...SETTINGS_DEFAULTS}}}
 let panelSettings=loadSettings();
@@ -301,6 +301,16 @@ function metricNetwork(){const ni=os.networkInterfaces();let iface=null;for(cons
 function metricSample(){const total=os.totalmem(),free=os.freemem(),net=metricNetwork();return{time:new Date().toISOString(),cpu:metricCpuUsage(),ram:Math.round((total-free)/total*100),load:Math.round(os.loadavg()[0]*100)/100,rx:net.rxPerSec||0,tx:net.txPerSec||0}}
 function storeMetric(){try{append(METRICS,metricSample());const st=fs.statSync(METRICS);if(st.size>2*1024*1024){const lines=fs.readFileSync(METRICS,"utf8").trim().split("\n").slice(-2880);fs.writeFileSync(METRICS,lines.join("\n")+"\n",{mode:0o600})}}catch{}}
 const metricTimer=setInterval(storeMetric,60000),metricWarmup=setTimeout(storeMetric,5000);metricTimer.unref?.();metricWarmup.unref?.();
+function mobileAlertState(){try{return JSON.parse(fs.readFileSync(MOBILE_STATE_FILE,"utf8"))}catch{return{active:{}}}}
+function saveMobileAlertState(v){fs.writeFileSync(MOBILE_STATE_FILE,JSON.stringify(v,null,2)+"\n",{mode:0o600})}
+function mobileAlertHistory(limit=100){return readJsonLines(MOBILE_ALERTS_FILE,Math.min(500,Math.max(1,limit)))}
+function mobileAlertKey(a){return [a.serverId||"local",a.level||"warning",a.title||"alert"].join(":")}
+function reconcileMobileAlerts(alerts){
+ const now=new Date().toISOString(),state=mobileAlertState(),previous=state.active||{},current={};
+ for(const a of alerts){const key=mobileAlertKey(a),old=previous[key];current[key]=old?{...old,lastSeenAt:now}:{key,serverId:a.serverId||"local",server:a.server||"JR Server",level:a.level||"warning",title:a.title||"Alerta",detail:a.detail||"",startedAt:now,lastSeenAt:now};if(!old)append(MOBILE_ALERTS_FILE,{event:"started",...current[key],time:now})}
+ for(const [key,old] of Object.entries(previous))if(!current[key])append(MOBILE_ALERTS_FILE,{event:"resolved",...old,resolvedAt:now,time:now});
+ saveMobileAlertState({updatedAt:now,active:current});return{active:Object.values(current),history:mobileAlertHistory(100)}
+}
 async function mobileV1Status(){
   const total=os.totalmem(),free=os.freemem(),cpu=cpuUsage(),temp=temperature(),net=network();
   const [d,processes,nginx,mysql,fail2ban,ddns,remoteResults]=await Promise.all([
@@ -316,10 +326,10 @@ async function mobileV1Status(){
     {id:"local",name:"JR Server",host:os.hostname(),local:true,online:true,level:localHealth.level,cpuPercent:cpu,memoryPercent:ram,diskPercent:d.percent,temperature:temp,uptime:os.uptime(),services},
     ...remoteResults.map(x=>({id:x.id,name:x.name,host:x.host,local:false,online:x.online,level:x.online?"ok":"critical",latencyMs:x.latencyMs,group:x.group||"",location:x.location||""}))
   ];
-  const alerts=[...localAlerts,...remoteAlerts],level=alerts.some(x=>x.level==="critical")?"critical":alerts.some(x=>x.level==="warning")?"warning":"ok";
-  return{apiVersion:1,product:"JR Server Mobile",generatedAt:new Date().toISOString(),summary:{level,serverCount:servers.length,onlineCount:servers.filter(x=>x.online).length,offlineCount:servers.filter(x=>!x.online).length,alertCount:alerts.length},local:{cpuPercent:cpu,memoryPercent:ram,diskPercent:d.percent,temperature:temp,uptime:os.uptime(),network:{rxPerSec:net.rxPerSec||0,txPerSec:net.txPerSec||0}},servers,alerts};
+  const alerts=[...localAlerts,...remoteAlerts],incidentState=reconcileMobileAlerts(alerts),level=alerts.some(x=>x.level==="critical")?"critical":alerts.some(x=>x.level==="warning")?"warning":"ok";
+  return{apiVersion:1,product:"JR Server Mobile",generatedAt:new Date().toISOString(),summary:{level,serverCount:servers.length,onlineCount:servers.filter(x=>x.online).length,offlineCount:servers.filter(x=>!x.online).length,alertCount:alerts.length},local:{cpuPercent:cpu,memoryPercent:ram,diskPercent:d.percent,temperature:temp,uptime:os.uptime(),network:{rxPerSec:net.rxPerSec||0,txPerSec:net.txPerSec||0}},servers,alerts,incidents:incidentState.active};
 }
-app.get("/api/mobile/v1/status",mobileAuth,async(req,res)=>{try{res.set("Cache-Control","no-store").json(await mobileV1Status())}catch(e){res.status(500).json({error:"mobile_status_unavailable"})}});
+app.get("/api/mobile/v1/status",mobileAuth,async(req,res)=>{try{res.set("Cache-Control","no-store").json(await mobileV1Status())}catch(e){res.status(500).json({error:"mobile_status_unavailable"})}});\napp.get("/api/mobile/v1/incidents",mobileAuth,(req,res)=>res.json({active:Object.values(mobileAlertState().active||{}),history:mobileAlertHistory(Number(req.query.limit)||100)}));
 
 app.get("/api/metrics/v3",(req,res)=>{const n=Number(req.query.limit),raw=Math.min(2880,Math.max(12,Number.isFinite(n)?Math.floor(n):360)),items=readJsonLines(METRICS,raw);res.set("Cache-Control","no-store").json({items,intervalSeconds:60,retention:2880})});
 function metricAnomalies(items){if(items.length<30)return[];const recent=items.slice(-10),base=items.slice(-30,-10),avg=(a,k)=>a.length?a.reduce((n,x)=>n+(Number(x[k])||0),0)/a.length:0,an=[];for(const k of ["cpu","ram","load"]){const b=avg(base,k),r=avg(recent,k),delta=r-b,limit=k==="load"?1.5:20;if(delta>=limit)an.push({metric:k,level:delta>=limit*1.75?"critical":"warning",baseline:Math.round(b*10)/10,current:Math.round(r*10)/10,delta:Math.round(delta*10)/10})}return an}
