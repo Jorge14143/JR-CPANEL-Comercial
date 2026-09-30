@@ -564,3 +564,8 @@ pre,.terminal-output,.log-output{background:#040d15!important;border:1px solid #
 @media(max-width:850px){
  :is(#mysqlPanel,#nginxPanel,#gitDeployPanel,#backupPanel,#logsPanel,#systemSecurityPanel,#ddnsPanel,#sslPanel,#updatesPanel,#alertsPanel) .pm2-top{align-items:flex-start;flex-direction:column}
 }
+
+/* V3 quick access distinct colors · 2026-09-30 */
+.v3-quick>div:last-child button[data-v3go="runtime"]{background:#6f42d9!important;color:#fff!important}
+.v3-quick>div:last-child button[data-v3go="emaildns"]{background:#008f83!important;color:#fff!important}
+.v3-quick>div:last-child button[data-v3go="updates"]{background:#d98218!important;color:#fff!important}
