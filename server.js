@@ -129,6 +129,18 @@ app.get("/api/updates",async(req,res)=>{try{const [{stdout:status},{stdout:list}
 app.post("/api/updates/:action",async(req,res)=>{if(!csrf(req,res))return;const action=String(req.params.action||"");if(!["refresh","upgrade"].includes(action))return res.status(400).json({error:"invalid_action"});try{const {stdout,stderr}=await updatesAction(action,action==="upgrade"?900000:180000);append(AUDIT,{action:"updates_"+action,ip:ip(req),user:req.session.user});res.json({ok:true,output:(stdout+"\n"+stderr).trim().slice(-16000)})}catch(e){append(AUDIT,{action:"updates_"+action+"_failed",ip:ip(req),user:req.session.user});res.status(500).json({error:"updates_"+action+"_failed",output:String(e.stderr||e.stdout||"").trim().slice(-16000)})}});
 
 
+const RUNNER_ACTIONS={
+  "nginx-test":{label:"Validar configuración Nginx",run:()=>nginxAction("test")},
+  "nginx-reload":{label:"Validar y recargar Nginx",run:()=>nginxAction("reload")},
+  "backup-now":{label:"Ejecutar backup completo",run:()=>backupAction("run",180000)},
+  "ddns-check":{label:"Comprobar Cloudflare DDNS",run:()=>ddnsAction("run",30000)},
+  "fail2ban-reload":{label:"Recargar Fail2Ban",run:()=>securityAction("reload",15000)},
+  "ssl-dry-run":{label:"Probar renovación SSL",run:()=>sslAction("renew-dry-run",300000)},
+  "updates-refresh":{label:"Actualizar índice APT",run:()=>updatesAction("refresh",180000)}
+};
+app.get("/api/runner",(req,res)=>{res.set("Cache-Control","no-store").json({actions:Object.entries(RUNNER_ACTIONS).map(([id,x])=>({id,label:x.label}))})});
+app.post("/api/runner/:id",async(req,res)=>{if(!csrf(req,res))return;const id=String(req.params.id||""),item=RUNNER_ACTIONS[id];if(!item)return res.status(404).json({error:"runner_action_not_found"});const started=Date.now();try{const out=await item.run(),output=String((out?.stdout||"")+"\n"+(out?.stderr||"")).trim().slice(-12000),durationMs=Date.now()-started;append(AUDIT,{action:"runner_"+id,target:item.label,durationMs,ip:ip(req),user:req.session.user});res.json({ok:true,id,label:item.label,durationMs,output:output||"Acción completada correctamente."})}catch(e){const durationMs=Date.now()-started;append(AUDIT,{action:"runner_"+id+"_failed",target:item.label,durationMs,ip:ip(req),user:req.session.user});res.status(500).json({error:"runner_action_failed",id,label:item.label,durationMs,output:String(e.stderr||e.stdout||e.message||"").trim().slice(-12000)})}});
+
 async function gitDeployAction(action,project,timeout=20000){return execFileAsync("sudo",["-n","/usr/local/sbin/jr-panel-git-deploy",action,project],{timeout,maxBuffer:4*1024*1024})}
 function gitProjectStatus(text){const lines=String(text||"").split("\n"),data={},changes=[];let inChanges=false;for(const line of lines){if(line==="changes_begin"){inChanges=true;continue}if(line==="changes_end"){inChanges=false;continue}if(inChanges){if(line)changes.push(line);continue}const i=line.indexOf("=");if(i>0)data[line.slice(0,i)]=line.slice(i+1)}return{project:data.project,path:data.path,branch:data.branch,pm2:data.pm2,head:data.head,remote:data.remote,ahead:Number(data.ahead)||0,behind:Number(data.behind)||0,clean:data.clean==="yes",lastCommit:data.last_commit||"",changes}}
 app.get("/api/git-deploy",async(req,res)=>{const projects=["panel","prod","test"],items=[],errors=[];for(const project of projects){try{const {stdout}=await gitDeployAction("status",project,30000);items.push(gitProjectStatus(stdout))}catch(e){errors.push({project,error:String(e.stderr||e.stdout||e.message||"status_failed").trim().slice(-1000)})}}res.set("Cache-Control","no-store").json({projects:items,errors,partial:errors.length>0})});
