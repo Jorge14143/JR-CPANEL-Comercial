@@ -42,10 +42,16 @@ app.post("/api/system/control/:action",async(req,res)=>{if(!csrf(req,res))return
 
 async function vmAction(action,...values){
   const args=["-n","/usr/local/sbin/jr-panel-vm",action,...values.filter(x=>x!==undefined&&x!==null).map(String)];
-  const result=await execFileAsync("sudo",args,{
-    timeout:action==="create"?120000:15000,
-    maxBuffer:1024*1024
-  });
+  let result;
+  try{
+    result=await execFileAsync("sudo",args,{
+      timeout:action==="create"?120000:15000,
+      maxBuffer:1024*1024
+    });
+  }catch(e){
+    console.error("VM action failed:",action,VM||"",String(e.stderr||e.stdout||e.message||e));
+    throw e;
+  }
 
   if(["create","start","shutdown","reboot","destroy"].includes(action)){
     try{
