@@ -13,6 +13,21 @@ case "${1:-}" in
     count=$(find "$BASE" -type f 2>/dev/null | wc -l)
     printf '%s\t%s\n' "${bytes:-0}" "${count:-0}"
     ;;
+  status)
+    latest=$(find "$BASE/automaticos" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort -r | head -1 || true)
+    [ -n "$latest" ] || { printf 'latest=\ndatabase=0\nproject=0\npanel=0\nserver=0\ncomplete=0\nremote=0\n'; exit 0; }
+    dir="$BASE/automaticos/$latest"
+    [ -s "$dir/database/jr_electricidad.sql" ] && database=1 || database=0
+    [ -d "$dir/proyecto/jrelectricidad1" ] && [ "$(find "$dir/proyecto/jrelectricidad1" -mindepth 1 -print -quit 2>/dev/null)" ] && project=1 || project=0
+    [ -d "$dir/jr-server-panel" ] && [ "$(find "$dir/jr-server-panel" -mindepth 1 -print -quit 2>/dev/null)" ] && panel=1 || panel=0
+    [ -d "$dir/servidor/nginx" ] && [ -s "$dir/servidor/info/pm2-processes.json" ] && server=1 || server=0
+    [ -f "$dir/COMPLETE" ] && complete=1 || complete=0
+    remote=0
+    if command -v rclone >/dev/null 2>&1 && [ -f /home/jorge/.config/rclone/rclone.conf ]; then
+      rclone --config /home/jorge/.config/rclone/rclone.conf lsf "backblaze-crypt:JR-ELECTRICIDAD/AUTOMATICOS/$latest/" --max-depth 1 >/dev/null 2>&1 && remote=1 || true
+    fi
+    printf 'latest=%s\ndatabase=%s\nproject=%s\npanel=%s\nserver=%s\ncomplete=%s\nremote=%s\n' "$latest" "$database" "$project" "$panel" "$server" "$complete" "$remote"
+    ;;
   script-status)
     if [ -f "$SCRIPT" ]; then
       stat -c '%a|%U|%G|%Y|%s' "$SCRIPT"
