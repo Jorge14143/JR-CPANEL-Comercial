@@ -224,7 +224,9 @@ case "$ACTION" in
     /usr/bin/mount -o ro,noload "${LOOP}p1" "$TMP"
     ROOT_UUID=$(/usr/sbin/blkid -s UUID -o value "${LOOP}p1" 2>/dev/null || true)
     SWAP_UUID=""
-    if [ -b "${LOOP}p5" ]; then SWAP_UUID=$(/usr/sbin/blkid -s UUID -o value "${LOOP}p5" 2>/dev/null || true); fi
+    if [ -b "${LOOP}p5" ]; then
+      SWAP_UUID=$(/usr/sbin/blkid -s UUID -o value "${LOOP}p5" 2>/dev/null || true)
+    fi
     [ -n "$ROOT_UUID" ] || { echo "root_uuid_not_found" >&2; exit 8; }
     printf 'ROOT_UUID=%s\nSWAP_UUID=%s\n' "$ROOT_UUID" "$SWAP_UUID" > "$DIR/filesystem-uuids"
     /usr/bin/tar --one-file-system --numeric-owner --xattrs --acls -C "$TMP" -cpf - . | /usr/bin/gzip -1 > "$DIR/rootfs.tar.gz"
@@ -255,45 +257,13 @@ case "$ACTION" in
       ROOT_UUID=$(/usr/bin/gzip -dc "$DIR/rootfs.tar.gz" | /usr/bin/tar -xOf - ./etc/fstab 2>/dev/null | /usr/bin/awk '$2=="/" && $1 ~ /^UUID=/ {sub(/^UUID=/,"",$1); print $1; exit}' || true)
       SWAP_UUID=$(/usr/bin/gzip -dc "$DIR/rootfs.tar.gz" | /usr/bin/tar -xOf - ./etc/fstab 2>/dev/null | /usr/bin/awk '$3=="swap" && $1 ~ /^UUID=/ {sub(/^UUID=/,"",$1); print $1; exit}' || true)
     fi
-    printf '%s' "$ROOT_UUID" | /usr/bin/grep -Eq '^[0-9a-fA-F-]{36}
-    ;;
-  start) need_vm; exec /usr/bin/virsh start "$VM" ;;
-  shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
-  reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
-  destroy) need_vm; exec /usr/bin/virsh destroy "$VM" ;;
-  delete)
-    need_vm
-    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
-    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
-    exec /usr/bin/virsh undefine "$VM" --nvram
-    ;;
-  autostart-on) need_vm; exec /usr/bin/virsh autostart "$VM" ;;
-  autostart-off) need_vm; exec /usr/bin/virsh autostart --disable "$VM" ;;
-  *) echo "invalid_action" >&2; exit 2 ;;
-esac
- || { echo "root_uuid_not_found" >&2; exit 8; }
+    [ -n "$ROOT_UUID" ] || { echo "root_uuid_not_found" >&2; exit 8; }
     /usr/sbin/mkfs.ext4 -F -U "$ROOT_UUID" "${LOOP}p1" >/dev/null
     /usr/bin/mount "${LOOP}p1" "$TMP"
     /usr/bin/gzip -dc "$DIR/rootfs.tar.gz" | /usr/bin/tar --numeric-owner --xattrs --acls -C "$TMP" -xpf -
     /usr/bin/umount "$TMP"
     if [ -b "${LOOP}p5" ]; then
-      printf '%s' "$SWAP_UUID" | /usr/bin/grep -Eq '^[0-9a-fA-F-]{36}
-    ;;
-  start) need_vm; exec /usr/bin/virsh start "$VM" ;;
-  shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
-  reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
-  destroy) need_vm; exec /usr/bin/virsh destroy "$VM" ;;
-  delete)
-    need_vm
-    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
-    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
-    exec /usr/bin/virsh undefine "$VM" --nvram
-    ;;
-  autostart-on) need_vm; exec /usr/bin/virsh autostart "$VM" ;;
-  autostart-off) need_vm; exec /usr/bin/virsh autostart --disable "$VM" ;;
-  *) echo "invalid_action" >&2; exit 2 ;;
-esac
- || { echo "swap_uuid_not_found" >&2; exit 9; }
+      [ -n "$SWAP_UUID" ] || { echo "swap_uuid_not_found" >&2; exit 9; }
       /usr/sbin/mkswap -U "$SWAP_UUID" "${LOOP}p5" >/dev/null
     fi
     /usr/sbin/losetup -d "$LOOP"; LOOP=""; /usr/bin/sync; echo "restored:$ID"
