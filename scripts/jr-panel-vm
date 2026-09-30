@@ -196,6 +196,12 @@ case "$ACTION" in
   shutdown) need_vm; exec /usr/bin/virsh shutdown "$VM" ;;
   reboot) need_vm; exec /usr/bin/virsh reboot "$VM" ;;
   destroy) need_vm; exec /usr/bin/virsh destroy "$VM" ;;
+  delete)
+    need_vm
+    STATE=$(/usr/bin/virsh domstate "$VM" 2>/dev/null || true)
+    [ "$STATE" != "running" ] && [ "$STATE" != "paused" ] && [ "$STATE" != "in shutdown" ] || { echo "vm_must_be_stopped" >&2; exit 4; }
+    exec /usr/bin/virsh undefine "$VM" --nvram
+    ;;
   autostart-on) need_vm; exec /usr/bin/virsh autostart "$VM" ;;
   autostart-off) need_vm; exec /usr/bin/virsh autostart --disable "$VM" ;;
   *) echo "invalid_action" >&2; exit 2 ;;
