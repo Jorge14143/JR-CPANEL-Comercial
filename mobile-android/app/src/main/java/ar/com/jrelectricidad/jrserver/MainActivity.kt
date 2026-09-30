@@ -3,22 +3,29 @@ package ar.com.jrelectricidad.jrserver
 import android.Manifest
 import android.app.*
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.app.PendingIntent
-import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.*
@@ -29,204 +36,154 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
+private val Navy=Color(0xFF06111F)
+private val Panel=Color(0xFF0D1B2B)
+private val Panel2=Color(0xFF12243A)
+private val Blue=Color(0xFF1DA1FF)
+private val Cyan=Color(0xFF20D7FF)
+private val Green=Color(0xFF25E58B)
+private val Orange=Color(0xFFFFA24C)
+private val Purple=Color(0xFFB96CFF)
+private val Red=Color(0xFFFF5267)
+private val Muted=Color(0xFF9FB0C4)
+
 data class ServerState(val name:String,val online:Boolean,val level:String,val host:String,val cpu:Int?=null,val ram:Int?=null,val disk:Int?=null,val temp:String?=null,val uptime:Long?=null,val latency:Int?=null)
 data class IncidentState(val event:String,val server:String,val title:String,val level:String,val time:String)
+data class ServiceState(val name:String,val status:String,val cpu:Int,val memory:Long,val restarts:Int)
 data class MonitorState(val level:String="loading",val cpu:Int=0,val ram:Int=0,val disk:Int=0,val temp:String="--",val alerts:Int=0,val servers:List<ServerState> = emptyList(),val error:String?=null)
 
 class MainActivity:ComponentActivity(){
  override fun onCreate(savedInstanceState:Bundle?){
-  super.onCreate(savedInstanceState);MobileApi.init(applicationContext);AlertNotifier.channel(applicationContext);MonitorScheduler.start(applicationContext)
+  super.onCreate(savedInstanceState)
+  MobileApi.init(applicationContext);AlertNotifier.channel(applicationContext);MonitorScheduler.start(applicationContext)
   if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),40)
-  setContent{MaterialTheme(colorScheme=darkColorScheme()){Surface(Modifier.fillMaxSize()){JRServerApp()}}}
+  setContent{MaterialTheme(colorScheme=darkColorScheme(background=Navy,surface=Panel,primary=Blue,error=Red)){Surface(Modifier.fillMaxSize(),color=Navy){JRServerApp()}}}
  }
 }
 
-@Composable
-fun JRServerApp() {
-    val context = LocalContext.current
-    var state by remember { mutableStateOf(MonitorState()) }
-    var refreshing by remember { mutableStateOf(false) }
-    var incidents by remember { mutableStateOf(listOf<IncidentState>()) }
-    var tab by remember { mutableIntStateOf(0) }
-    var showSettings by remember { mutableStateOf(false) }
-    var paired by remember { mutableStateOf(MobileApi.hasToken()) }
-
-    if (!paired) {
-        PairScreen { paired = true }
-        return
-    }
-    if (showSettings) {
-        SettingsScreen(
-            onBack = { showSettings = false },
-            onDisconnect = {
-                MobileApi.disconnect()
-                paired = false
-                showSettings = false
-            }
-        )
-        return
-    }
-
-    LaunchedEffect(Unit) {
-        MobileApi.load { value ->
-            (context as? android.app.Activity)?.runOnUiThread { state = value }
-        }
-        MobileApi.incidents { value ->
-            (context as? android.app.Activity)?.runOnUiThread { incidents = value }
-        }
-    }
-
-    Column(Modifier.fillMaxSize()) {
-        NavigationBar {
-            NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Text("◉") }, label = { Text("Estado") })
-            NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Text("▣") }, label = { Text("Servidores") })
-            NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Text("!") }, label = { Text("Alertas") })
-            NavigationBarItem(selected = false, onClick = { showSettings = true }, icon = { Text("⚙") }, label = { Text("Ajustes") })
-        }
-
-        when (tab) {
-            2 -> IncidentList(incidents)
-            1 -> ServerList(state.servers)
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text("JR SERVER", style = MaterialTheme.typography.headlineMedium)
-                            Text("Monitor móvil", color = MaterialTheme.colorScheme.primary)
-                        }
-                        TextButton(onClick = {
-                            refreshing = true
-                            MobileApi.load { value ->
-                                (context as? android.app.Activity)?.runOnUiThread {
-                                    state = value
-                                    refreshing = false
-                                }
-                            }
-                            MobileApi.incidents { value ->
-                                (context as? android.app.Activity)?.runOnUiThread { incidents = value }
-                            }
-                        }) {
-                            Text(if (refreshing) "…" else "ACTUALIZAR")
-                        }
-                    }
-                }
-                item {
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(18.dp)) {
-                            Text(
-                                when (state.level) {
-                                    "ok" -> "● TODO CORRECTO"
-                                    "warning" -> "● ADVERTENCIA"
-                                    "critical" -> "● FALLA DETECTADA"
-                                    else -> "● CONECTANDO…"
-                                },
-                                style = MaterialTheme.typography.titleLarge
-                            )
-                            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                        }
-                    }
-                }
-                item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Metric("CPU", "${state.cpu}%", Modifier.weight(1f))
-                        Metric("RAM", "${state.ram}%", Modifier.weight(1f))
-                        Metric("DISCO", "${state.disk}%", Modifier.weight(1f))
-                    }
-                }
-                item {
-                    Metric("TEMPERATURA", if (state.temp == "--") "--" else "${state.temp} °C", Modifier.fillMaxWidth())
-                }
-                item { Text("SERVIDORES", style = MaterialTheme.typography.titleMedium) }
-                items(state.servers.take(3)) { server -> ServerCard(server) }
-                item { Text("Alertas activas: ${state.alerts}") }
-            }
-        }
-    }
-}
-
-@Composable fun SettingsScreen(onBack:()->Unit,onDisconnect:()->Unit){
- var confirm by remember{mutableStateOf(false)}
- Column(Modifier.fillMaxSize().padding(24.dp)){
-  TextButton(onClick=onBack){Text("← VOLVER")}
-  Spacer(Modifier.height(12.dp));Text("AJUSTES",style=MaterialTheme.typography.headlineMedium)
-  Spacer(Modifier.height(20.dp));Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){Text("Panel vinculado",style=MaterialTheme.typography.labelMedium);Text(MobileApi.panelUrl(),style=MaterialTheme.typography.bodyLarge);Spacer(Modifier.height(6.dp));Text("Monitor en segundo plano · cada 15 min",style=MaterialTheme.typography.bodySmall)}}
-  Spacer(Modifier.height(16.dp));OutlinedButton(onClick={confirm=true},modifier=Modifier.fillMaxWidth()){Text("DESVINCULAR ESTE TELÉFONO")}
-  if(confirm)AlertDialog(onDismissRequest={confirm=false},title={Text("Desvincular teléfono")},text={Text("La app dejará de consultar este JR Server Panel hasta que vuelvas a vincularla.")},confirmButton={TextButton(onClick=onDisconnect){Text("DESVINCULAR")}},dismissButton={TextButton(onClick={confirm=false}){Text("CANCELAR")}})
- }
-}
-@Composable fun PairScreen(done:()->Unit){
+@Composable fun JRServerApp(){
  val context=LocalContext.current
- var panel by remember{mutableStateOf(MobileApi.panelUrl())};var user by remember{mutableStateOf("")};var pass by remember{mutableStateOf("")};var code by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
- Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center){
-  Text("JR SERVER",style=MaterialTheme.typography.headlineLarge);Text("Vincular este teléfono",style=MaterialTheme.typography.titleMedium);Spacer(Modifier.height(20.dp))
-  OutlinedTextField(panel,{panel=it},label={Text("URL del panel")},placeholder={Text("https://panel.ejemplo.com")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp))
-  OutlinedTextField(user,{user=it},label={Text("Usuario")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp))
-  OutlinedTextField(pass,{pass=it},label={Text("Contraseña")},visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp))
-  OutlinedTextField(code,{code=it.filter(Char::isDigit).take(6)},label={Text("Código 2FA")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(12.dp))
-  Button(onClick={busy=true;error=null;MobileApi.pair(panel,user,pass,code){ok,msg->(context as? android.app.Activity)?.runOnUiThread{busy=false;if(ok){MonitorScheduler.start(MobileApi.appContext());done()}else error=msg}}},enabled=!busy&&panel.isNotBlank()&&user.isNotBlank()&&pass.isNotBlank()&&code.length==6,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Vinculando…" else "VINCULAR")}
-  error?.let{Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(top=10.dp))}
- }
-}
-@Composable fun ServerList(servers:List<ServerState>){
- LazyColumn(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-  item{Text("SERVIDORES",style=MaterialTheme.typography.titleLarge);Text("Estado del JR Server y Multi Servidor",style=MaterialTheme.typography.bodySmall)}
-  items(servers){ServerCard(it)}
- }
-}
-@Composable fun ServerCard(s:ServerState){
- Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){
-  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text(s.name,style=MaterialTheme.typography.titleMedium);Text(s.host,style=MaterialTheme.typography.bodySmall)};Text(if(s.online)"● ONLINE" else "● OFFLINE",color=if(s.online)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)}
-  if(s.online){Spacer(Modifier.height(10.dp));val parts=buildList{if(s.cpu!=null)add("CPU "+s.cpu+"%");if(s.ram!=null)add("RAM "+s.ram+"%");if(s.disk!=null)add("Disco "+s.disk+"%");if(s.temp!=null)add(s.temp+" °C");if(s.latency!=null)add(s.latency.toString()+" ms")};if(parts.isNotEmpty())Text(parts.joinToString(" · "),style=MaterialTheme.typography.bodySmall)}
+ var state by remember{mutableStateOf(MonitorState())};var incidents by remember{mutableStateOf(emptyList<IncidentState>())};var services by remember{mutableStateOf(emptyList<ServiceState>())}
+ var tab by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())};var selected by remember{mutableStateOf<ServerState?>(null)};var refreshing by remember{mutableStateOf(false)}
+ fun refresh(){refreshing=true;MobileApi.load{v->(context as? Activity)?.runOnUiThread{state=v;refreshing=false}};MobileApi.incidents{v->(context as? Activity)?.runOnUiThread{incidents=v}};MobileApi.services{v->(context as? Activity)?.runOnUiThread{services=v}}}
+ if(!paired){PairScreen{paired=true};return}
+ LaunchedEffect(Unit){refresh()}
+ if(selected!=null){ServerDetail(selected!!,services,onBack={selected=null},onRefresh={refresh()});return}
+ Scaffold(containerColor=Navy,bottomBar={BottomNav(tab,state.alerts){tab=it}}){pad->
+  Box(Modifier.padding(pad).fillMaxSize()){
+   when(tab){
+    1->ServerList(state.servers){selected=it}
+    2->IncidentList(incidents)
+    3->SettingsScreen(onDisconnect={MobileApi.disconnect();paired=false})
+    else->Dashboard(state,refreshing,onRefresh={refresh()},onServer={selected=it},onAlerts={tab=2})
+   }
   }
  }
 }
-@Composable fun IncidentList(items:List<IncidentState>){
- LazyColumn(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-  item{Text("ALERTAS E HISTORIAL",style=MaterialTheme.typography.titleLarge)}
-  if(items.isEmpty())item{Card(Modifier.fillMaxWidth()){Text("Sin incidentes registrados",Modifier.padding(18.dp))}}
-  items(items){x->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text((if(x.event=="resolved")"✓ RECUPERADO" else "● "+x.level.uppercase())+" · "+x.server,style=MaterialTheme.typography.titleSmall);Text(x.title);Text(x.time,style=MaterialTheme.typography.bodySmall)}}}
+
+@Composable fun BottomNav(tab:Int,alerts:Int,onTab:(Int)->Unit){
+ NavigationBar(containerColor=Color(0xFF081522)){
+  listOf("⌂" to "Inicio","▤" to "Servidores","♧" to "Alertas","⚙" to "Ajustes").forEachIndexed{i,x->
+   NavigationBarItem(selected=tab==i,onClick={onTab(i)},icon={Box{Text(x.first,fontSize=22.sp,color=if(tab==i)Blue else Muted);if(i==2&&alerts>0)Badge(Modifier.align(Alignment.TopEnd)){Text(alerts.toString())}}},label={Text(x.second)},colors=NavigationBarItemDefaults.colors(indicatorColor=Panel2,selectedTextColor=Blue,unselectedTextColor=Muted))
+  }
  }
 }
-@Composable fun Metric(label:String,value:String,modifier:Modifier=Modifier){Card(modifier){Column(Modifier.padding(14.dp)){Text(label,style=MaterialTheme.typography.labelSmall);Text(value,style=MaterialTheme.typography.titleLarge)}}}
+
+@Composable fun Header(title:String,subtitle:String,action:String?=null,onAction:(()->Unit)?=null){
+ Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){
+  Row(verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(36.dp).background(Blue,RoundedCornerShape(9.dp)),contentAlignment=Alignment.Center){Text("JR",fontWeight=FontWeight.Bold,color=Color.White)};Spacer(Modifier.width(10.dp));Column{Text(title,fontSize=23.sp,fontWeight=FontWeight.Bold);Text(subtitle,color=Muted,fontSize=12.sp)}}
+  if(action!=null)TextButton(onClick={onAction?.invoke()}){Text(action,color=Cyan)}
+ }
+}
+
+@Composable fun Dashboard(state:MonitorState,refreshing:Boolean,onRefresh:()->Unit,onServer:(ServerState)->Unit,onAlerts:()->Unit){
+ LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+  item{Header("JR SERVER","Monitor móvil",if(refreshing)"…" else "ACTUALIZAR",onRefresh)}
+  item{StatusHero(state)}
+  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){Gauge("CPU",state.cpu,Blue,Modifier.weight(1f));Gauge("RAM",state.ram,Green,Modifier.weight(1f))}}
+  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){Gauge("DISCO",state.disk,Orange,Modifier.weight(1f));Gauge("TEMP",state.temp.toDoubleOrNull()?.toInt()?:0,Purple,Modifier.weight(1f),if(state.temp=="--")"--" else state.temp+"°C")}}
+  item{SectionTitle("SERVIDORES")}
+  items(state.servers.take(3)){ServerCard(it){onServer(it)}}
+  if(state.alerts>0)item{Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF351823)),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(Red)),modifier=Modifier.fillMaxWidth().clickable{onAlerts()}){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text("⚠",fontSize=28.sp,color=Red);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text("${state.alerts} alerta${if(state.alerts==1)"" else "s"} activa${if(state.alerts==1)"" else "s"}",fontWeight=FontWeight.Bold);Text("Revisar detalles",color=Muted)};Text("›",fontSize=28.sp)}}}
+ }
+}
+
+@Composable fun StatusHero(s:MonitorState){
+ val ok=s.level=="ok";val warn=s.level=="warning";val c=if(ok)Green else if(warn)Orange else Red
+ Card(colors=CardDefaults.cardColors(containerColor=Panel2),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(58.dp).background(c.copy(alpha=.16f),CircleShape),contentAlignment=Alignment.Center){Text(if(ok)"✓" else "!",fontSize=32.sp,color=c,fontWeight=FontWeight.Bold)};Spacer(Modifier.width(15.dp));Column{Text(if(ok)"SISTEMA ONLINE" else if(warn)"ADVERTENCIA" else "FALLA DETECTADA",color=c,fontWeight=FontWeight.Bold,fontSize=18.sp);Text(if(ok)"Servicios supervisados funcionando" else "Revisá las alertas activas",color=Muted);s.error?.let{Text(it,color=Red,fontSize=12.sp)}}}}
+}
+
+@Composable fun Gauge(label:String,value:Int,color:Color,modifier:Modifier=Modifier,display:String="${value}%"){
+ Card(modifier,colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.fillMaxWidth().padding(16.dp),horizontalAlignment=Alignment.CenterHorizontally){Box(contentAlignment=Alignment.Center){CircularProgressIndicator(progress={value.coerceIn(0,100)/100f},modifier=Modifier.size(78.dp),color=color,trackColor=Color(0xFF1C3045),strokeWidth=8.dp);Text(display,fontWeight=FontWeight.Bold,fontSize=18.sp)};Spacer(Modifier.height(8.dp));Text(label,fontWeight=FontWeight.Bold)}}
+}
+
+@Composable fun SectionTitle(t:String){Text(t,fontWeight=FontWeight.Bold,fontSize=14.sp,color=Color(0xFFDCE8F5))}
+
+@Composable fun ServerList(servers:List<ServerState>,open:(ServerState)->Unit){
+ LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("JR SERVER","Servidores")};item{Card(colors=CardDefaults.cardColors(containerColor=Panel2),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(14.dp).background(if(servers.all{it.online})Green else Orange,CircleShape));Spacer(Modifier.width(12.dp));Column{Text("SERVIDORES",fontWeight=FontWeight.Bold);Text("${servers.count{it.online}} en línea / ${servers.count{!it.online}} fuera de servicio",color=Muted)}}}};items(servers){ServerCard(it){open(it)}}}
+}
+
+@Composable fun ServerCard(s:ServerState,onClick:()->Unit={}){
+ Card(Modifier.fillMaxWidth().clickable{onClick()},colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(16.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text(s.name,fontWeight=FontWeight.Bold,fontSize=17.sp);Text(s.host,color=Muted,fontSize=12.sp)};Text(if(s.online)"● ONLINE" else "● OFFLINE",color=if(s.online)Green else Red,fontWeight=FontWeight.Bold,fontSize=12.sp)};if(s.online){Spacer(Modifier.height(12.dp));Text(listOfNotNull(s.cpu?.let{"CPU ${it}%"},s.ram?.let{"RAM ${it}%"},s.disk?.let{"DISCO ${it}%"},s.temp?.let{"TEMP ${it}°C"}).joinToString("   "),color=Muted,fontSize=12.sp);s.uptime?.let{Text("Uptime: "+formatUptime(it),color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=8.dp))}}}}
+}
+
+@Composable fun ServerDetail(server:ServerState,services:List<ServiceState>,onBack:()->Unit,onRefresh:()->Unit){
+ var serviceTab by remember{mutableStateOf(true)}
+ LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+  item{Row(verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onBack){Text("‹",fontSize=34.sp)};Header("JR SERVER","Detalle del servidor")}}
+  item{Card(colors=CardDefaults.cardColors(containerColor=Panel2),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(50.dp).background(Blue.copy(alpha=.18f),RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center){Text("▣",color=Cyan,fontSize=25.sp)};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(server.name,fontWeight=FontWeight.Bold,fontSize=18.sp);Text(server.host,color=Muted)};Text(if(server.online)"ONLINE" else "OFFLINE",color=if(server.online)Green else Red,fontWeight=FontWeight.Bold)}}}
+  item{Row(Modifier.fillMaxWidth()){Button(onClick={serviceTab=false},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=if(!serviceTab)Blue else Panel2)){Text("Estado")};Spacer(Modifier.width(8.dp));Button(onClick={serviceTab=true},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=if(serviceTab)Blue else Panel2)){Text("Servicios")}}}
+  if(!serviceTab){item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){MiniMetric("CPU",server.cpu?.let{"${it}%"}?:"--",Blue,Modifier.weight(1f));MiniMetric("RAM",server.ram?.let{"${it}%"}?:"--",Green,Modifier.weight(1f))}};item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){MiniMetric("DISCO",server.disk?.let{"${it}%"}?:"--",Orange,Modifier.weight(1f));MiniMetric("TEMP",server.temp?.let{"${it}°C"}?:"--",Purple,Modifier.weight(1f))}}}
+  else if(server.name.equals("JR Server",true)||server.host.contains("jrelectricidad",true)){item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){SectionTitle("SERVICIOS PM2");TextButton(onClick=onRefresh){Text("↻ Actualizar")}}};items(services){ServiceCard(it,onDone=onRefresh)}}
+  else item{Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Text("El control remoto de procesos está disponible para el servidor principal JR Server.",Modifier.padding(18.dp),color=Muted)}}
+ }
+}
+
+@Composable fun MiniMetric(label:String,value:String,color:Color,modifier:Modifier){Card(modifier,colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(16.dp)){Text(label,color=Muted,fontSize=11.sp);Text(value,fontSize=22.sp,fontWeight=FontWeight.Bold,color=color)}}}
+
+@Composable fun ServiceCard(s:ServiceState,onDone:()->Unit){
+ val context=LocalContext.current;var ask by remember{mutableStateOf<String?>(null)};var busy by remember{mutableStateOf(false)};var msg by remember{mutableStateOf<String?>(null)};val online=s.status=="online"
+ Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(15.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text(s.name,fontWeight=FontWeight.Bold);Text("CPU ${s.cpu}% · RAM ${formatBytes(s.memory)} · Reinicios ${s.restarts}",color=Muted,fontSize=11.sp)};Text(if(online)"● EN EJECUCIÓN" else "● ${s.status.uppercase()}",color=if(online)Green else Red,fontSize=11.sp,fontWeight=FontWeight.Bold)};Spacer(Modifier.height(12.dp));Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){if(!online)SmallAction("▶ Iniciar",Green){ask="start"};SmallAction("↻ Reiniciar",Blue){ask="restart"};if(s.name!="jr-server-panel")SmallAction("■ Detener",Red){ask="stop"}};msg?.let{Text(it,color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=8.dp))}}}
+ if(ask!=null)AlertDialog(onDismissRequest={ask=null},title={Text(when(ask){"stop"->"Detener servicio";"start"->"Iniciar servicio";else->"Reiniciar servicio"})},text={Text("¿Confirmás ${askText(ask!!)} ${s.name}?")},confirmButton={TextButton(enabled=!busy,onClick={val action=ask!!;busy=true;MobileApi.serviceAction(s.name,action){ok,message->(context as? Activity)?.runOnUiThread{busy=false;ask=null;msg=message;if(ok)onDone()}}}){Text(if(busy)"…" else "CONFIRMAR")}},dismissButton={TextButton(onClick={ask=null}){Text("CANCELAR")}})
+}
+
+@Composable fun SmallAction(text:String,color:Color,onClick:()->Unit){OutlinedButton(onClick=onClick,contentPadding=PaddingValues(horizontal=10.dp,vertical=5.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=color)){Text(text,fontSize=11.sp)}}
+fun askText(a:String)=when(a){"start"->"iniciar";"stop"->"detener";else->"reiniciar"}
+fun formatBytes(v:Long):String=if(v<=0)"0 MB" else "${v/1024/1024} MB"
+fun formatUptime(v:Long):String{val d=v/86400;val h=(v%86400)/3600;return if(d>0)"${d} d, ${h} h" else "${h} h"}
+
+@Composable fun IncidentList(data:List<IncidentState>){
+ LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("JR SERVER","Alertas")};item{Card(colors=CardDefaults.cardColors(containerColor=if(data.isEmpty())Panel2 else Color(0xFF351823)),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){Text(if(data.isEmpty())"✓" else "⚠",fontSize=30.sp,color=if(data.isEmpty())Green else Red);Spacer(Modifier.width(12.dp));Column{Text(if(data.isEmpty())"SIN ALERTAS" else "ESTADO DE ALERTAS",fontWeight=FontWeight.Bold);Text(if(data.isEmpty())"No hay incidentes registrados" else "${data.count{it.event!="resolved"}} alerta(s) activa(s)",color=Muted)}}}};items(data){x->Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(15.dp)){Text((if(x.event=="resolved")"✓ RECUPERADO" else "⚠ ${x.level.uppercase()}")+" · "+x.server,color=if(x.event=="resolved")Green else Red,fontWeight=FontWeight.Bold);Text(x.title,modifier=Modifier.padding(top=5.dp));Text(x.time,color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp))}}}}
+}
+
+@Composable fun SettingsScreen(onDisconnect:()->Unit){
+ var confirm by remember{mutableStateOf(false)}
+ LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("JR SERVER","Ajustes")};item{SectionTitle("CONFIGURACIÓN DE LA APP")};item{SettingCard("▣","URL del panel",MobileApi.panelUrl())};item{SettingCard("↻","Actualización","Segundo plano cada 15 minutos")};item{SectionTitle("SEGURIDAD")};item{Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth().clickable{confirm=true}){Text("⇥  Desvincular dispositivo",Modifier.padding(18.dp),color=Red,fontWeight=FontWeight.Bold)}};item{SectionTitle("INFORMACIÓN")};item{SettingCard("ⓘ","Versión de la app","v1.0.0")}}
+ if(confirm)AlertDialog(onDismissRequest={confirm=false},title={Text("Desvincular teléfono")},text={Text("La app dejará de consultar este JR Server Panel.")},confirmButton={TextButton(onClick=onDisconnect){Text("DESVINCULAR")}},dismissButton={TextButton(onClick={confirm=false}){Text("CANCELAR")}})
+}
+@Composable fun SettingCard(icon:String,title:String,sub:String){Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(icon,color=Blue,fontSize=22.sp);Spacer(Modifier.width(12.dp));Column{Text(title,fontWeight=FontWeight.Bold);Text(sub,color=Muted,fontSize=12.sp)}}}}
+
+@Composable fun PairScreen(done:()->Unit){
+ val context=LocalContext.current;var panel by remember{mutableStateOf(MobileApi.panelUrl())};var user by remember{mutableStateOf("")};var pass by remember{mutableStateOf("")};var code by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
+ Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center){Header("JR SERVER","Vincular este teléfono");Spacer(Modifier.height(24.dp));OutlinedTextField(panel,{panel=it},label={Text("URL del panel")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp));OutlinedTextField(user,{user=it},label={Text("Usuario")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp));OutlinedTextField(pass,{pass=it},label={Text("Contraseña")},visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp));OutlinedTextField(code,{code=it.filter(Char::isDigit).take(6)},label={Text("Código 2FA")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(14.dp));Button(onClick={busy=true;error=null;MobileApi.pair(panel,user,pass,code){ok,msg->(context as? Activity)?.runOnUiThread{busy=false;if(ok){MonitorScheduler.start(MobileApi.appContext());done()}else error=msg}}},enabled=!busy&&panel.isNotBlank()&&user.isNotBlank()&&pass.isNotBlank()&&code.length==6,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Vinculando…" else "VINCULAR")};error?.let{Text(it,color=Red,modifier=Modifier.padding(top=10.dp))}}
+}
 
 object MobileApi{
  private const val DEFAULT_URL="https://jrserver.jrelectricidad.com.ar";private val client=OkHttpClient();private lateinit var context:Context
- fun init(c:Context){context=c.applicationContext};fun appContext()=context
- private fun prefs()=context.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE)
- fun panelUrl()=(prefs().getString("panel_url",DEFAULT_URL)?:DEFAULT_URL).trimEnd('/')
- private fun normalizeUrl(v:String):String{var x=v.trim().trimEnd('/');if(!x.startsWith("https://")&&!x.startsWith("http://"))x="https://"+x;require(x.startsWith("https://")){"JR Server Mobile requiere HTTPS"};return x}
- private fun token()=prefs().getString("token","")?:"";fun hasToken()=token().isNotBlank()
- private fun saveToken(value:String){prefs().edit().putString("token",value).apply()}
+ fun init(c:Context){context=c.applicationContext};fun appContext()=context;private fun prefs()=context.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE);fun panelUrl()=(prefs().getString("panel_url",DEFAULT_URL)?:DEFAULT_URL).trimEnd('/');private fun normalizeUrl(v:String):String{var x=v.trim().trimEnd('/');if(!x.startsWith("https://")&&!x.startsWith("http://"))x="https://"+x;require(x.startsWith("https://")){"JR Server Mobile requiere HTTPS"};return x};private fun token()=prefs().getString("token","")?:"";fun hasToken()=token().isNotBlank();private fun saveToken(v:String){prefs().edit().putString("token",v).apply()}
  fun disconnect(){prefs().edit().remove("token").remove("last_level").remove("active_incidents").apply();WorkManager.getInstance(context).cancelUniqueWork("jr-monitor")}
- fun pair(panel:String,user:String,pass:String,code:String,done:(Boolean,String)->Unit){
-  val json=JSONObject().put("username",user).put("password",pass).put("code",code).put("deviceName",Build.MANUFACTURER+" "+Build.MODEL).toString()
-  val base=try{normalizeUrl(panel)}catch(e:Exception){done(false,e.message?:"URL inválida");return};val req=Request.Builder().url(base+"/api/mobile/v1/pair").post(json.toRequestBody("application/json".toMediaType())).build()
-  client.newCall(req).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(false,"No se pudo conectar");override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");if(it.isSuccessful&&j.optString("token").isNotBlank()){prefs().edit().putString("panel_url",base).apply();saveToken(j.getString("token"));done(true,"")}else done(false,"Credenciales o 2FA incorrectos")}catch(e:Exception){done(false,"Respuesta no válida")}}}})
- }
- fun statusJson(done:(JSONObject?)->Unit){val b=Request.Builder().url(panelUrl()+"/api/mobile/v1/status");val t=token();if(t.isNotBlank())b.header("Authorization","Bearer "+t);client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(null);override fun onResponse(c:Call,r:Response){r.use{done(if(it.isSuccessful)runCatching{JSONObject(it.body?.string()?:"{}")}.getOrNull() else null)}}})}
- fun incidents(done:(List<IncidentState>)->Unit){val b=Request.Builder().url(panelUrl()+"/api/mobile/v1/incidents?limit=100");val t=token();if(t.isNotBlank())b.header("Authorization","Bearer "+t);client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(emptyList());override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");val a=j.optJSONArray("history");val out=buildList{if(a!=null)for(i in a.length()-1 downTo 0){val x=a.getJSONObject(i);add(IncidentState(x.optString("event"),x.optString("server"),x.optString("title"),x.optString("level"),x.optString("time")))}};done(out)}catch(e:Exception){done(emptyList())}}}})}
+ private fun request(path:String,method:String="GET",body:String?=null,done:(Int,String)->Unit){val b=Request.Builder().url(panelUrl()+path).header("Authorization","Bearer "+token());if(method=="POST")b.post((body?:"{}").toRequestBody("application/json".toMediaType()));client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(0,"");override fun onResponse(c:Call,r:Response){r.use{done(it.code,it.body?.string()?:"")}}})}
+ fun pair(panel:String,user:String,pass:String,code:String,done:(Boolean,String)->Unit){val json=JSONObject().put("username",user).put("password",pass).put("code",code).put("deviceName",Build.MANUFACTURER+" "+Build.MODEL).toString();val base=try{normalizeUrl(panel)}catch(e:Exception){done(false,e.message?:"URL inválida");return};val req=Request.Builder().url(base+"/api/mobile/v1/pair").post(json.toRequestBody("application/json".toMediaType())).build();client.newCall(req).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(false,"No se pudo conectar");override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");if(it.isSuccessful&&j.optString("token").isNotBlank()){prefs().edit().putString("panel_url",base).apply();saveToken(j.getString("token"));done(true,"")}else done(false,"Credenciales o 2FA incorrectos")}catch(e:Exception){done(false,"Respuesta no válida")}}}})}
+ fun statusJson(done:(JSONObject?)->Unit)=request("/api/mobile/v1/status"){code,raw->done(if(code in 200..299)runCatching{JSONObject(raw)}.getOrNull() else null)}
+ fun incidents(done:(List<IncidentState>)->Unit)=request("/api/mobile/v1/incidents?limit=100"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).optJSONArray("history");val out=buildList{if(a!=null)for(i in a.length()-1 downTo 0){val x=a.getJSONObject(i);add(IncidentState(x.optString("event"),x.optString("server"),x.optString("title"),x.optString("level"),x.optString("time")))}};done(out)}catch(e:Exception){done(emptyList())}}
+ fun services(done:(List<ServiceState>)->Unit)=request("/api/mobile/v1/services"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).getJSONArray("services");val out=buildList{for(i in 0 until a.length()){val x=a.getJSONObject(i);add(ServiceState(x.optString("name"),x.optString("status"),x.optInt("cpu"),x.optLong("memory"),x.optInt("restarts")))}};done(out)}catch(e:Exception){done(emptyList())}}
+ fun serviceAction(name:String,action:String,done:(Boolean,String)->Unit)=request("/api/mobile/v1/services/${java.net.URLEncoder.encode(name,"UTF-8")}/$action","POST","{}"){code,raw->val ok=code in 200..299;val message=if(ok)"Acción ejecutada correctamente" else runCatching{JSONObject(raw).optString("error")}.getOrDefault("Error al ejecutar");done(ok,message)}
  fun load(done:(MonitorState)->Unit)=statusJson{j->if(j==null){done(MonitorState(level="critical",error="No se pudo consultar el panel"));return@statusJson};try{val summary=j.getJSONObject("summary");val local=j.getJSONObject("local");val arr=j.getJSONArray("servers");val servers=buildList{for(i in 0 until arr.length()){val x=arr.getJSONObject(i);add(ServerState(x.optString("name"),x.optBoolean("online"),x.optString("level"),x.optString("host"),if(x.has("cpuPercent"))x.optInt("cpuPercent") else null,if(x.has("memoryPercent"))x.optInt("memoryPercent") else null,if(x.has("diskPercent"))x.optInt("diskPercent") else null,if(x.has("temperature")&&!x.isNull("temperature"))x.optDouble("temperature").toString() else null,if(x.has("uptime"))x.optLong("uptime") else null,if(x.has("latencyMs")&&!x.isNull("latencyMs"))x.optInt("latencyMs") else null))}};done(MonitorState(summary.optString("level"),local.optInt("cpuPercent"),local.optInt("memoryPercent"),local.optInt("diskPercent"),if(local.isNull("temperature"))"--" else local.optDouble("temperature").toString(),summary.optInt("alertCount"),servers))}catch(e:Exception){done(MonitorState(level="critical",error="Respuesta no válida"))}}
 }
-
 object MonitorScheduler{fun start(c:Context){val req=PeriodicWorkRequestBuilder<MonitorWorker>(15,TimeUnit.MINUTES).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build();WorkManager.getInstance(c).enqueueUniquePeriodicWork("jr-monitor",ExistingPeriodicWorkPolicy.UPDATE,req)}}
-class MonitorWorker(c:Context,p:WorkerParameters):Worker(c,p){
- override fun doWork():Result{MobileApi.init(applicationContext);if(!MobileApi.hasToken())return Result.success();val latch=java.util.concurrent.CountDownLatch(1);var ok=false;MobileApi.statusJson{j->if(j!=null){AlertNotifier.evaluate(applicationContext,j);ok=true};latch.countDown()};latch.await(20,TimeUnit.SECONDS);return if(ok)Result.success() else Result.retry()}
-}
+class MonitorWorker(c:Context,p:WorkerParameters):Worker(c,p){override fun doWork():Result{MobileApi.init(applicationContext);if(!MobileApi.hasToken())return Result.success();val latch=java.util.concurrent.CountDownLatch(1);var ok=false;MobileApi.statusJson{j->if(j!=null){AlertNotifier.evaluate(applicationContext,j);ok=true};latch.countDown()};latch.await(20,TimeUnit.SECONDS);return if(ok)Result.success() else Result.retry()}}
 object AlertNotifier{
- private const val CH="jr_alerts"
- fun channel(c:Context){if(Build.VERSION.SDK_INT>=26)(c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(NotificationChannel(CH,"Alertas JR Server",NotificationManager.IMPORTANCE_HIGH))}
- fun evaluate(c:Context,j:JSONObject){
-  val prefs=c.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE)
-  val active=j.optJSONArray("incidents")
-  val now=mutableSetOf<String>();val info=mutableMapOf<String,Pair<String,String>>()
-  if(active!=null)for(i in 0 until active.length()){val x=active.optJSONObject(i)?:continue;val key=x.optString("key");if(key.isNotBlank()){now.add(key);info[key]=Pair(x.optString("server","JR Server"),x.optString("title","Falla detectada"))}}
-  val before=prefs.getStringSet("active_incidents",emptySet())?.toSet()?:emptySet()
-  for(key in now-before){val x=info[key];notify(c,key.hashCode(),"JR Server · "+(x?.first?:"Alerta"),x?.second?:"Se detectó un nuevo incidente.")}
-  for(key in before-now)notify(c,key.hashCode(),"JR Server · Recuperado","Un incidente activo fue resuelto. Abrí la app para ver el historial.")
-  prefs.edit().putStringSet("active_incidents",now).apply()
- }
+ private const val CH="jr_alerts";fun channel(c:Context){if(Build.VERSION.SDK_INT>=26)(c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(NotificationChannel(CH,"Alertas JR Server",NotificationManager.IMPORTANCE_HIGH))}
+ fun evaluate(c:Context,j:JSONObject){val prefs=c.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE);val active=j.optJSONArray("incidents");val now=mutableSetOf<String>();val info=mutableMapOf<String,Pair<String,String>>();if(active!=null)for(i in 0 until active.length()){val x=active.optJSONObject(i)?:continue;val key=x.optString("key");if(key.isNotBlank()){now.add(key);info[key]=Pair(x.optString("server","JR Server"),x.optString("title","Falla detectada"))}};val before=prefs.getStringSet("active_incidents",emptySet())?.toSet()?:emptySet();for(key in now-before){val x=info[key];notify(c,key.hashCode(),"JR Server · "+(x?.first?:"Alerta"),x?.second?:"Se detectó un nuevo incidente.")};for(key in before-now)notify(c,key.hashCode(),"JR Server · Recuperado","Un incidente activo fue resuelto.");prefs.edit().putStringSet("active_incidents",now).apply()}
  private fun notify(c:Context,id:Int,title:String,text:String){if(Build.VERSION.SDK_INT>=33&&c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return;channel(c);val intent=Intent(c,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP);val pi=PendingIntent.getActivity(c,0,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE);val n=NotificationCompat.Builder(c,CH).setSmallIcon(android.R.drawable.stat_notify_error).setContentTitle(title).setContentText(text).setPriority(NotificationCompat.PRIORITY_HIGH).setContentIntent(pi).setAutoCancel(true).build();NotificationManagerCompat.from(c).notify(id,n)}
 }
