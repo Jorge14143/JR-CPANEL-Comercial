@@ -41,32 +41,112 @@ class MainActivity:ComponentActivity(){
  }
 }
 
-@Composable fun JRServerApp(){
- val context=LocalContext.current
- var state by remember{mutableStateOf(MonitorState())};var refreshing by remember{mutableStateOf(false)};var incidents by remember{mutableStateOf(listOf<IncidentState>())};var tab by remember{mutableIntStateOf(0)};var showSettings by remember{mutableStateOf(false)};var paired by remember{mutableStateOf(MobileApi.hasToken())}
- if(!paired){PairScreen{paired=true};return}
- if(showSettings){SettingsScreen(onBack={showSettings=false},onDisconnect={MobileApi.disconnect();paired=false;showSettings=false});return}
- LaunchedEffect(Unit){MobileApi.load{v->(context as? android.app.Activity)?.runOnUiThread{state=v}};MobileApi.incidents{v->(context as? android.app.Activity)?.runOnUiThread{incidents=v}}}
- Column(Modifier.fillMaxSize()){
-  NavigationBar {
-   NavigationBarItem(selected=tab==0,onClick={tab=0},icon={Text("◉")},label={Text("Estado")})
-   NavigationBarItem(selected=tab==1,onClick={tab=1},icon={Text("▣")},label={Text("Servidores")})
-   NavigationBarItem(selected=tab==2,onClick={tab=2},icon={Text("!")},label={Text("Alertas")})
-   NavigationBarItem(selected=false,onClick={showSettings=true},icon={Text("⚙")},label={Text("Ajustes")})
-  }
-  if(tab==2){IncidentList(incidents);return@Column}
-  if(tab==1){ServerList(state.servers);return@Column}
-  LazyColumn(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text("JR SERVER",style=MaterialTheme.typography.headlineMedium);Text("Monitor móvil",color=MaterialTheme.colorScheme.primary)};TextButton(onClick={refreshing=true;MobileApi.load{v->(context as? android.app.Activity)?.runOnUiThread{state=v;refreshing=false}};MobileApi.incidents{v->(context as? android.app.Activity)?.runOnUiThread{incidents=v}}}){Text(if(refreshing)"…" else "ACTUALIZAR")}}}
-  item{Card(Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp)){Text(when(state.level){"ok"->"● TODO CORRECTO";"warning"->"● ADVERTENCIA";"critical"->"● FALLA DETECTADA";else->"● CONECTANDO…"},style=MaterialTheme.typography.titleLarge);state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}}}
-  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){Metric("CPU",state.cpu.toString()+"%",Modifier.weight(1f));Metric("RAM",state.ram.toString()+"%",Modifier.weight(1f));Metric("DISCO",state.disk.toString()+"%",Modifier.weight(1f))}}
-  item{Metric("TEMPERATURA",if(state.temp=="--")"--" else state.temp+" °C",Modifier.fillMaxWidth())}
-  item{Text("SERVIDORES",style=MaterialTheme.typography.titleMedium)}
-  items(state.servers.take(3)){s->ServerCard(s)}
-  item{Text("Alertas activas: "+state.alerts)}
-  }
- }
+@Composable
+fun JRServerApp() {
+    val context = LocalContext.current
+    var state by remember { mutableStateOf(MonitorState()) }
+    var refreshing by remember { mutableStateOf(false) }
+    var incidents by remember { mutableStateOf(listOf<IncidentState>()) }
+    var tab by remember { mutableIntStateOf(0) }
+    var showSettings by remember { mutableStateOf(false) }
+    var paired by remember { mutableStateOf(MobileApi.hasToken()) }
+
+    if (!paired) {
+        PairScreen { paired = true }
+        return
+    }
+    if (showSettings) {
+        SettingsScreen(
+            onBack = { showSettings = false },
+            onDisconnect = {
+                MobileApi.disconnect()
+                paired = false
+                showSettings = false
+            }
+        )
+        return
+    }
+
+    LaunchedEffect(Unit) {
+        MobileApi.load { value ->
+            (context as? android.app.Activity)?.runOnUiThread { state = value }
+        }
+        MobileApi.incidents { value ->
+            (context as? android.app.Activity)?.runOnUiThread { incidents = value }
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        NavigationBar {
+            NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Text("◉") }, label = { Text("Estado") })
+            NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Text("▣") }, label = { Text("Servidores") })
+            NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Text("!") }, label = { Text("Alertas") })
+            NavigationBarItem(selected = false, onClick = { showSettings = true }, icon = { Text("⚙") }, label = { Text("Ajustes") })
+        }
+
+        when (tab) {
+            2 -> IncidentList(incidents)
+            1 -> ServerList(state.servers)
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text("JR SERVER", style = MaterialTheme.typography.headlineMedium)
+                            Text("Monitor móvil", color = MaterialTheme.colorScheme.primary)
+                        }
+                        TextButton(onClick = {
+                            refreshing = true
+                            MobileApi.load { value ->
+                                (context as? android.app.Activity)?.runOnUiThread {
+                                    state = value
+                                    refreshing = false
+                                }
+                            }
+                            MobileApi.incidents { value ->
+                                (context as? android.app.Activity)?.runOnUiThread { incidents = value }
+                            }
+                        }) {
+                            Text(if (refreshing) "…" else "ACTUALIZAR")
+                        }
+                    }
+                }
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text(
+                                when (state.level) {
+                                    "ok" -> "● TODO CORRECTO"
+                                    "warning" -> "● ADVERTENCIA"
+                                    "critical" -> "● FALLA DETECTADA"
+                                    else -> "● CONECTANDO…"
+                                },
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        }
+                    }
+                }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Metric("CPU", "${state.cpu}%", Modifier.weight(1f))
+                        Metric("RAM", "${state.ram}%", Modifier.weight(1f))
+                        Metric("DISCO", "${state.disk}%", Modifier.weight(1f))
+                    }
+                }
+                item {
+                    Metric("TEMPERATURA", if (state.temp == "--") "--" else "${state.temp} °C", Modifier.fillMaxWidth())
+                }
+                item { Text("SERVIDORES", style = MaterialTheme.typography.titleMedium) }
+                items(state.servers.take(3)) { server -> ServerCard(server) }
+                item { Text("Alertas activas: ${state.alerts}") }
+            }
+        }
+    }
 }
+
 @Composable fun SettingsScreen(onBack:()->Unit,onDisconnect:()->Unit){
  var confirm by remember{mutableStateOf(false)}
  Column(Modifier.fillMaxSize().padding(24.dp)){
