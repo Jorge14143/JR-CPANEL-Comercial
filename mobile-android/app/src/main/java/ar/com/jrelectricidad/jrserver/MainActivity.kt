@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.app.PendingIntent
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -38,7 +40,7 @@ class MainActivity:ComponentActivity(){
 }
 
 @Composable fun JRServerApp(){
- var state by remember{mutableStateOf(MonitorState())};var incidents by remember{mutableStateOf(listOf<IncidentState>())};var tab by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())}
+ var state by remember{mutableStateOf(MonitorState())};var refreshing by remember{mutableStateOf(false)};var incidents by remember{mutableStateOf(listOf<IncidentState>())};var tab by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())}
  if(!paired){PairScreen{paired=true};return}
  LaunchedEffect(Unit){MobileApi.load{state=it};MobileApi.incidents{incidents=it}}
  Column(Modifier.fillMaxSize()){
@@ -48,7 +50,7 @@ class MainActivity:ComponentActivity(){
    NavigationBarItem(selected=tab==2,onClick={tab=2},icon={Text("!")},label={Text("Alertas")})
   }
   if(tab==2){IncidentList(incidents);return@Column}\n  if(tab==1){ServerList(state.servers);return@Column}\n  LazyColumn(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-  item{Text("JR SERVER",style=MaterialTheme.typography.headlineMedium);Text("Monitor móvil",color=MaterialTheme.colorScheme.primary)}
+  item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text("JR SERVER",style=MaterialTheme.typography.headlineMedium);Text("Monitor móvil",color=MaterialTheme.colorScheme.primary)};TextButton(onClick={refreshing=true;MobileApi.load{state=it;refreshing=false};MobileApi.incidents{incidents=it}}){Text(if(refreshing)"…" else "ACTUALIZAR")}}}
   item{Card(Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp)){Text(when(state.level){"ok"->"● TODO CORRECTO";"warning"->"● ADVERTENCIA";"critical"->"● FALLA DETECTADA";else->"● CONECTANDO…"},style=MaterialTheme.typography.titleLarge);state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}}}
   item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){Metric("CPU",state.cpu.toString()+"%",Modifier.weight(1f));Metric("RAM",state.ram.toString()+"%",Modifier.weight(1f));Metric("DISCO",state.disk.toString()+"%",Modifier.weight(1f))}}
   item{Metric("TEMPERATURA",if(state.temp=="--")"--" else state.temp+" °C",Modifier.fillMaxWidth())}
@@ -96,6 +98,7 @@ object MobileApi{
  private fun normalizeUrl(v:String):String{var x=v.trim().trimEnd('/');if(!x.startsWith("https://")&&!x.startsWith("http://"))x="https://"+x;return x}
  private fun token()=prefs().getString("token","")?:"";fun hasToken()=token().isNotBlank()
  private fun saveToken(value:String){prefs().edit().putString("token",value).apply()}
+ fun disconnect(){prefs().edit().remove("token").remove("last_level").apply()}
  fun pair(panel:String,user:String,pass:String,code:String,done:(Boolean,String)->Unit){
   val json=JSONObject().put("username",user).put("password",pass).put("code",code).put("deviceName",Build.MANUFACTURER+" "+Build.MODEL).toString()
   val base=normalizeUrl(panel);val req=Request.Builder().url(base+"/api/mobile/v1/pair").post(json.toRequestBody("application/json".toMediaType())).build()
@@ -114,5 +117,5 @@ object AlertNotifier{
  private const val CH="jr_alerts"
  fun channel(c:Context){if(Build.VERSION.SDK_INT>=26)(c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(NotificationChannel(CH,"Alertas JR Server",NotificationManager.IMPORTANCE_HIGH))}
  fun evaluate(c:Context,j:JSONObject){val level=j.optJSONObject("summary")?.optString("level")?:"ok";val prefs=c.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE);val before=prefs.getString("last_level","ok")?:"ok";if(level!=before){if(level=="critical"||level=="warning")notify(c,100,"JR Server · Alerta",if(level=="critical")"Se detectó una falla. Abrí la app para revisar el servidor.":"Hay una advertencia nueva en el servidor.");else if(before=="critical"||before=="warning")notify(c,101,"JR Server · Recuperado","Los servicios volvieron a estado normal.");prefs.edit().putString("last_level",level).apply()}}
- private fun notify(c:Context,id:Int,title:String,text:String){if(Build.VERSION.SDK_INT>=33&&c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return;channel(c);val n=NotificationCompat.Builder(c,CH).setSmallIcon(android.R.drawable.stat_notify_error).setContentTitle(title).setContentText(text).setPriority(NotificationCompat.PRIORITY_HIGH).setAutoCancel(true).build();NotificationManagerCompat.from(c).notify(id,n)}
+ private fun notify(c:Context,id:Int,title:String,text:String){if(Build.VERSION.SDK_INT>=33&&c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return;channel(c);val intent=Intent(c,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP);val pi=PendingIntent.getActivity(c,0,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE);val n=NotificationCompat.Builder(c,CH).setSmallIcon(android.R.drawable.stat_notify_error).setContentTitle(title).setContentText(text).setPriority(NotificationCompat.PRIORITY_HIGH).setContentIntent(pi).setAutoCancel(true).build();NotificationManagerCompat.from(c).notify(id,n)}
 }
