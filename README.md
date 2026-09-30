@@ -82,3 +82,22 @@ Abrir `http://127.0.0.1:3100`.
 - Login protegido, sesiones, Google Authenticator 2FA, códigos de recuperación, CSRF y auditoría de acciones sensibles.
 
 **Estado:** V2 cerrada y estable.
+
+## V3.0.0 — Release estable
+- Panel V3 cerrado sobre la base estable de V2.
+- Multi-servidor con inventario, estado y monitoreo remoto.
+- Agente remoto ligero para Linux con métricas y servicios systemd.
+- App Android nativa con vinculación por dispositivo, dashboard, métricas, alertas y control protegido de PM2.
+- Servicios del sistema visibles desde la app; servidores remotos reportan servicios mediante el agente.
+- Alertas móviles de incidentes y recuperación con control de estado para evitar repeticiones innecesarias.
+- API móvil protegida con tokens por dispositivo y API de agente protegida con Bearer token.
+- Integración probada con servidor principal, servidor Debian remoto, emulador Android y teléfono Android físico.
+
+**Estado:** V3 cerrada y estable.
+
+### Fuera del alcance de V3 / siguientes mejoras
+- APK Release firmada para distribución a clientes.
+- Protección del token Android mediante Keystore.
+- Descarga oficial de la APK mediante QR desde el panel.
+- Push inmediato mediante FCM; V3 utiliza comprobaciones periódicas en segundo plano.
+- Controles remotos del agente adicionales, siempre mediante lista cerrada y auditoría.
