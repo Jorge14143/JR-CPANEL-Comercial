@@ -14,6 +14,29 @@ def cpu():
         v=open("/proc/stat").readline().split()[1:];n=list(map(int,v));return sum(n),n[3]+(n[4] if len(n)>4 else 0)
     a,i=snap();time.sleep(.25);b,j=snap();return round(100*(1-(j-i)/max(1,b-a)))
 
+_net_prev=None
+
+def network_metrics():
+    global _net_prev
+    now=time.time();stats={}
+    try:
+        for line in open("/proc/net/dev").read().splitlines()[2:]:
+            if ":" not in line:continue
+            name,raw=line.split(":",1);name=name.strip()
+            if name=="lo":continue
+            fields=raw.split()
+            if len(fields)>=16:stats[name]=(int(fields[0]),int(fields[8]))
+    except:return {"interface":"--","rxPerSec":0,"txPerSec":0,"rxBytes":0,"txBytes":0}
+    if not stats:return {"interface":"--","rxPerSec":0,"txPerSec":0,"rxBytes":0,"txBytes":0}
+    route=sh("ip","route","show","default").split()
+    preferred=route[route.index("dev")+1] if "dev" in route and route.index("dev")+1<len(route) else None
+    iface=preferred if preferred in stats else max(stats,key=lambda x:sum(stats[x]))
+    rx,tx=stats[iface];rxps=txps=0
+    if _net_prev and _net_prev[0]==iface:
+        elapsed=max(.001,now-_net_prev[1]);rxps=max(0,round((rx-_net_prev[2])/elapsed));txps=max(0,round((tx-_net_prev[3])/elapsed))
+    _net_prev=(iface,now,rx,tx)
+    return {"interface":iface,"rxPerSec":rxps,"txPerSec":txps,"rxBytes":rx,"txBytes":tx}
+
 def metrics():
     mem={k:int(v.split()[0]) for k,v in (line.split(":",1) for line in open("/proc/meminfo")) if k in ("MemTotal","MemAvailable")}
     st=os.statvfs("/");total=st.f_blocks*st.f_frsize;free=st.f_bavail*st.f_frsize
@@ -27,7 +50,7 @@ def metrics():
                 if 0<v<150:vals.append(v)
         if vals:temp=round(max(vals),1)
     except:pass
-    return {"cpuPercent":cpu(),"memoryPercent":round(100*(1-mem["MemAvailable"]/mem["MemTotal"])),"diskPercent":round(100*(1-free/max(1,total))),"temperature":temp,"uptime":int(float(open("/proc/uptime").read().split()[0]))}
+    return {"cpuPercent":cpu(),"memoryPercent":round(100*(1-mem["MemAvailable"]/mem["MemTotal"])),"diskPercent":round(100*(1-free/max(1,total))),"temperature":temp,"uptime":int(float(open("/proc/uptime").read().split()[0])),"network":network_metrics()}
 
 def service_is_relevant(unit,name,desc):
     # Discovery stays dynamic: this is a generic noise filter, not a catalog
