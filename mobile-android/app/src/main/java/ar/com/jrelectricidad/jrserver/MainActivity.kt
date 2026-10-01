@@ -441,21 +441,54 @@ fun humanTime(raw:String):String=try{val instant=Instant.parse(raw);val mins=(Sy
 
 @Composable
 fun CommercialSettingsScreen(server:ServerState?,onBack:()->Unit,onDisconnect:()->Unit){
+ var section by remember{mutableIntStateOf(0)}
  var updates by remember{mutableStateOf(true)}
  var backups by remember{mutableStateOf(true)}
  var email by remember{mutableStateOf(true)}
  var whatsapp by remember{mutableStateOf(true)}
+ var critical by remember{mutableStateOf(true)}
+ var warnings by remember{mutableStateOf(true)}
+ var biometric by remember{mutableStateOf(true)}
+ var destructiveAuth by remember{mutableStateOf(true)}
+ var darkMode by remember{mutableStateOf(true)}
+ val tabs=listOf("General","Red","Notificaciones","Seguridad","Apariencia")
  LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
   item{Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Volver")};Column(Modifier.weight(1f)){Text("Configuración",fontSize=24.sp,fontWeight=FontWeight.Bold);Text(server?.host?:MobileApi.panelUrl(),color=Muted,fontSize=11.sp)}}}
-  item{Row(Modifier.fillMaxWidth().background(Color(0xFF05233B),RoundedCornerShape(12.dp)),horizontalArrangement=Arrangement.SpaceEvenly){listOf("General","Red","Notificaciones","Seguridad","Apariencia").forEachIndexed{i,name->Text(name,Modifier.padding(horizontal=4.dp,vertical=13.dp),color=if(i==0)Cyan else Muted,fontSize=9.sp)}}}
-  item{SettingsToggle(Icons.Default.SystemUpdate,"Actualizaciones","Actualizar automáticamente",Purple,updates){updates=it}}
-  item{SettingsToggle(Icons.Default.Backup,"Backups automáticos","Copia de seguridad programada",Green,backups){backups=it}}
-  item{SettingsToggle(Icons.Default.Notifications,"Notificaciones por email","Alertas importantes",Orange,email){email=it}}
-  item{SettingsToggle(Icons.Default.Chat,"Notificaciones WhatsApp","Alertas operativas",Green,whatsapp){whatsapp=it}}
+  item{Row(Modifier.fillMaxWidth().background(Color(0xFF05233B),RoundedCornerShape(12.dp)),horizontalArrangement=Arrangement.SpaceEvenly){tabs.forEachIndexed{i,name->Box(Modifier.weight(1f).clickable{section=i}.then(if(section==i)Modifier.background(Blue.copy(alpha=.34f),RoundedCornerShape(10.dp)) else Modifier).padding(vertical=13.dp),contentAlignment=Alignment.Center){Text(name,color=if(section==i)Cyan else Muted,fontSize=9.sp,fontWeight=if(section==i)FontWeight.Bold else FontWeight.Normal)}}}}
+  when(section){
+   0->{
+    item{SettingsInfo(Icons.Default.Dns,"Información del servidor",server?.name?:"JR Server",Blue)}
+    item{SettingsToggle(Icons.Default.SystemUpdate,"Actualizaciones","Actualizar automáticamente",Purple,updates){updates=it}}
+    item{SettingsToggle(Icons.Default.Backup,"Backups automáticos","Copia de seguridad programada",Green,backups){backups=it}}
+   }
+   1->{
+    item{SettingsInfo(Icons.Default.Language,"Servidor / host",server?.host?:MobileApi.panelUrl(),Cyan)}
+    item{SettingsInfo(Icons.Default.Wifi,"Estado de conexión",if(server?.online==true)"ONLINE" else "OFFLINE",if(server?.online==true)Green else Red)}
+    item{SettingsInfo(Icons.Default.Speed,"Latencia",server?.latency?.let{"$it ms"}?:"Sin datos",Blue)}
+   }
+   2->{
+    item{SettingsToggle(Icons.Default.Notifications,"Notificaciones por email","Alertas importantes",Orange,email){email=it}}
+    item{SettingsToggle(Icons.Default.Chat,"Notificaciones WhatsApp","Alertas operativas",Green,whatsapp){whatsapp=it}}
+    item{SettingsToggle(Icons.Default.Error,"Alertas críticas","Incidentes de prioridad alta",Red,critical){critical=it}}
+    item{SettingsToggle(Icons.Default.Warning,"Advertencias","Avisos preventivos",Orange,warnings){warnings=it}}
+   }
+   3->{
+    item{SettingsToggle(Icons.Default.Fingerprint,"Biometría","Confirmar acceso con biometría",Cyan,biometric){biometric=it}}
+    item{SettingsToggle(Icons.Default.Security,"Acciones críticas","Pedir autenticación antes de ejecutar",Red,destructiveAuth){destructiveAuth=it}}
+    item{SettingsInfo(Icons.Default.Lock,"Conexión segura","HTTPS obligatorio",Green)}
+   }
+   else->{
+    item{SettingsToggle(Icons.Default.DarkMode,"Modo oscuro","Interfaz oscura JR Server Mobile",Purple,darkMode){darkMode=it}}
+    item{SettingsInfo(Icons.Default.Palette,"Tema","Neón JR Server",Cyan)}
+    item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){listOf(Cyan,Green,Orange,Purple,Red).forEach{color->Box(Modifier.size(42.dp).background(color.copy(alpha=.34f),CircleShape).border(2.dp,color,CircleShape))}}}
+   }
+  }
   item{Button(onClick={},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Save,"Guardar");Spacer(Modifier.width(8.dp));Text("Guardar cambios")}}
-  item{OutlinedButton(onClick=onDisconnect,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.outlinedButtonColors(contentColor=Red)){Text("Desvincular dispositivo")}}
+  if(section==3)item{OutlinedButton(onClick=onDisconnect,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.outlinedButtonColors(contentColor=Red)){Text("Desvincular dispositivo")}}
  }
 }
+
+@Composable fun SettingsInfo(icon:androidx.compose.ui.graphics.vector.ImageVector,title:String,value:String,color:Color){Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF07263E)),modifier=Modifier.fillMaxWidth(),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(color.copy(alpha=.62f)))){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(40.dp).background(color.copy(alpha=.34f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Icon(icon,title,tint=color)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(title,fontWeight=FontWeight.Bold);Text(value,color=Muted,fontSize=11.sp)}}}}
 
 @Composable fun SettingsToggle(icon:androidx.compose.ui.graphics.vector.ImageVector,title:String,sub:String,color:Color,value:Boolean,onChange:(Boolean)->Unit){Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF07263E)),modifier=Modifier.fillMaxWidth(),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(color.copy(alpha=.62f)))){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(40.dp).background(color.copy(alpha=.34f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Icon(icon,title,tint=color)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(title,fontWeight=FontWeight.Bold);Text(sub,color=Muted,fontSize=10.sp)};Switch(checked=value,onCheckedChange=onChange)}}}
 
