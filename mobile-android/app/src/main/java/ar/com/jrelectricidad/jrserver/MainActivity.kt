@@ -480,6 +480,7 @@ fun humanTime(raw:String):String=try{val instant=Instant.parse(raw);val mins=(Sy
 
 @Composable
 fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:()->Unit,onDisconnect:()->Unit){
+ val context=LocalContext.current
  var section by remember{mutableIntStateOf(0)}
  var updates by remember{mutableStateOf(MobileApi.settingBool("updates",true))}
  var backups by remember{mutableStateOf(MobileApi.settingBool("backups",true))}
@@ -526,7 +527,7 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
     item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){listOf(Cyan,Green,Orange,Purple,Red).forEachIndexed{i,color->Box(Modifier.size(if(selectedColor==i)48.dp else 42.dp).background(color.copy(alpha=if(selectedColor==i).62f else .34f),CircleShape).border(if(selectedColor==i)4.dp else 2.dp,color,CircleShape).clickable{selectedColor=i},contentAlignment=Alignment.Center){if(selectedColor==i)Icon(Icons.Default.Check,"Seleccionado",tint=Color.White,modifier=Modifier.size(22.dp))}}}}
    }
   }
-  if(section==0)item{OutlinedButton(onClick={updateBusy=true;updateMsg="Buscando actualización…";MobileApi.checkForUpdate{available,version,url,message->(LocalContext.current as? Activity)?.runOnUiThread{updateBusy=false;if(available&&url!=null){updateMsg="Nueva versión "+version+". Descargando…";MobileUpdater.downloadAndInstall(LocalContext.current,url){msg->(LocalContext.current as? Activity)?.runOnUiThread{updateMsg=msg}}}else updateMsg=message}}},enabled=!updateBusy,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.SystemUpdate,"Actualizar");Spacer(Modifier.width(8.dp));Text(if(updateBusy)"Buscando…" else "Buscar actualización")}}
+  if(section==0)item{OutlinedButton(onClick={updateBusy=true;updateMsg="Buscando actualización…";MobileApi.checkForUpdate{available,version,url,message->(context as? Activity)?.runOnUiThread{updateBusy=false;if(available&&url!=null){updateMsg="Nueva versión "+version+". Descargando…";MobileUpdater.downloadAndInstall(context,url){msg->(context as? Activity)?.runOnUiThread{updateMsg=msg}}}else updateMsg=message}}},enabled=!updateBusy,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.SystemUpdate,"Actualizar");Spacer(Modifier.width(8.dp));Text(if(updateBusy)"Buscando…" else "Buscar actualización")}}
   if(section==0&&updateMsg!=null)item{Text(updateMsg!!,color=if(updateMsg!!.contains("actualizada",true))Green else Muted,fontSize=11.sp)}
   item{Button(onClick={MobileApi.saveSettings(mapOf("updates" to updates,"backups" to backups,"email" to email,"whatsapp" to whatsapp,"critical" to critical,"warnings" to warnings,"biometric" to biometric,"destructive_auth" to destructiveAuth,"dark_mode" to darkMode),selectedColor);saved=true},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Save,"Guardar");Spacer(Modifier.width(8.dp));Text(if(saved)"Cambios guardados" else "Guardar cambios")}}
   if(saved)item{Text("Configuración guardada en este dispositivo",color=Green,fontSize=11.sp)}
