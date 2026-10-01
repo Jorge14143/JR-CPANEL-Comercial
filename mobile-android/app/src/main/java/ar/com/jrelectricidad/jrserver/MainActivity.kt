@@ -106,7 +106,7 @@ class MainActivity:FragmentActivity(){
  }
  if(!paired){PairScreen{paired=true};return}
  LaunchedEffect(paired){while(paired){refresh();delay(3000)}}
- if(settings){CommercialSettingsScreen(state.servers.firstOrNull(),onBack={settings=false},onDisconnect={MobileApi.disconnect();paired=false;settings=false});return}
+ if(settings){CommercialSettingsScreen(state.servers.firstOrNull(),overview,onBack={settings=false},onDisconnect={MobileApi.disconnect();paired=false;settings=false});return}
  if(maintenanceServer!=null){MaintenanceScreen(maintenanceServer!!,overview,onBack={maintenanceServer=null},onRefresh={refresh()});return}
  if(selected!=null){ServerDetail(selected!!,services,systemServices,overview,incidents,rxHistory,txHistory,onBack={selected=null},onRefresh={refresh()});return}
  Scaffold(containerColor=Navy,bottomBar={BottomNav(tab,state.alerts){tab=it}}){pad->Box(Modifier.padding(pad).fillMaxSize()){when(tab){1->IncidentList(incidents);2->ActionsScreen(state.servers.firstOrNull(),overview,onMaintenance={maintenanceServer=state.servers.firstOrNull()},onRefresh={refresh()});3->IncidentHistory(incidents);else->Dashboard(state,overview,refreshing,onRefresh={refresh()},onSettings={settings=true},onServer={selected=it},onAlerts={tab=1})}}}
@@ -188,7 +188,7 @@ fun Dashboard(
     ) { Text("Esperando servidores…", Modifier.padding(22.dp), color = Muted) }
    }
   }
-  items(state.servers) { s -> ApprovedServerCard(s) { onServer(s) } }
+  items(state.servers) { s -> ApprovedServerCard(s, if (s == state.servers.firstOrNull()) overview.latency.takeIf { it > 0 } else null) { onServer(s) } }
   item {
    Text("Estado general", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
   }
@@ -203,7 +203,7 @@ fun Dashboard(
 }
 
 @Composable
-fun ApprovedServerCard(s: ServerState, onClick: () -> Unit) {
+fun ApprovedServerCard(s: ServerState, fallbackLatency:Int?=null, onClick: () -> Unit) {
  val accent = if (s.online) Green else Red
  Card(
   Modifier.fillMaxWidth().clickable { onClick() },
@@ -242,7 +242,7 @@ fun ApprovedServerCard(s: ServerState, onClick: () -> Unit) {
    Spacer(Modifier.height(9.dp))
    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
     Text(s.uptime?.let { "Uptime " + formatUptime(it) } ?: "Esperando uptime", color = Muted, fontSize = 10.sp)
-    Text(s.latency?.let { it.toString() + " ms" } ?: "-- ms", color = if ((s.latency ?: 0) < 100) Green else Orange, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    Text((s.latency ?: fallbackLatency)?.let { it.toString() + " ms" } ?: "-- ms", color = if (((s.latency ?: fallbackLatency) ?: 0) < 100) Green else Orange, fontSize = 10.sp, fontWeight = FontWeight.Bold)
    }
   }
  }
@@ -440,7 +440,7 @@ fun humanTime(raw:String):String=try{val instant=Instant.parse(raw);val mins=(Sy
 @Composable fun MaintenanceAction(icon:androidx.compose.ui.graphics.vector.ImageVector,title:String,color:Color,onClick:()->Unit){Card(Modifier.fillMaxWidth().clickable{onClick()},colors=CardDefaults.cardColors(containerColor=color.copy(alpha=.2f)),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(color.copy(alpha=.90f)))){Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,title,tint=color);Spacer(Modifier.width(12.dp));Text(title,Modifier.weight(1f),fontWeight=FontWeight.Bold);Icon(Icons.Default.ChevronRight,"Abrir",tint=color)}}}
 
 @Composable
-fun CommercialSettingsScreen(server:ServerState?,onBack:()->Unit,onDisconnect:()->Unit){
+fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:()->Unit,onDisconnect:()->Unit){
  var section by remember{mutableIntStateOf(0)}
  var updates by remember{mutableStateOf(true)}
  var backups by remember{mutableStateOf(true)}
@@ -464,7 +464,7 @@ fun CommercialSettingsScreen(server:ServerState?,onBack:()->Unit,onDisconnect:()
    1->{
     item{SettingsInfo(Icons.Default.Language,"Servidor / host",server?.host?:MobileApi.panelUrl(),Cyan)}
     item{SettingsInfo(Icons.Default.Wifi,"Estado de conexión",if(server?.online==true)"ONLINE" else "OFFLINE",if(server?.online==true)Green else Red)}
-    item{SettingsInfo(Icons.Default.Speed,"Latencia",server?.latency?.let{"$it ms"}?:"Sin datos",Blue)}
+    item{SettingsInfo(Icons.Default.Speed,"Latencia",(server?.latency ?: overview.latency.takeIf{it>0})?.let{"$it ms"}?:"Sin datos",Blue)}
    }
    2->{
     item{SettingsToggle(Icons.Default.Notifications,"Notificaciones por email","Alertas importantes",Orange,email){email=it}}
@@ -480,7 +480,7 @@ fun CommercialSettingsScreen(server:ServerState?,onBack:()->Unit,onDisconnect:()
    else->{
     item{SettingsToggle(Icons.Default.DarkMode,"Modo oscuro","Interfaz oscura JR Server Mobile",Purple,darkMode){darkMode=it}}
     item{SettingsInfo(Icons.Default.Palette,"Tema","Neón JR Server",Cyan)}
-    item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){listOf(Cyan,Green,Orange,Purple,Red).forEach{color->Box(Modifier.size(42.dp).background(color.copy(alpha=.34f),CircleShape).border(2.dp,color,CircleShape))}}}
+    item{var selectedColor by remember{mutableIntStateOf(0)};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){listOf(Cyan,Green,Orange,Purple,Red).forEachIndexed{i,color->Box(Modifier.size(if(selectedColor==i)48.dp else 42.dp).background(color.copy(alpha=if(selectedColor==i).62f else .34f),CircleShape).border(if(selectedColor==i)4.dp else 2.dp,color,CircleShape).clickable{selectedColor=i},contentAlignment=Alignment.Center){if(selectedColor==i)Icon(Icons.Default.Check,"Seleccionado",tint=Color.White,modifier=Modifier.size(22.dp))}}}}
    }
   }
   item{Button(onClick={},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Save,"Guardar");Spacer(Modifier.width(8.dp));Text("Guardar cambios")}}
