@@ -250,7 +250,7 @@ fun Dashboard(
     Spacer(Modifier.width(9.dp))
     Text("Server Mobile", fontSize = 15.sp, fontWeight = FontWeight.Medium)
     Spacer(Modifier.weight(1f))
-    BadgedBox(badge = { if (activeIncidents.size > 0) Badge(containerColor = Red) { Text(activeIncidents.size.toString()) } }) {
+    BadgedBox(badge = { if (state.alerts > 0) Badge(containerColor = Red) { Text(state.alerts.toString()) } }) {
      IconButton(onClick = onAlerts) { Icon(Icons.Default.Notifications, "Alertas", tint = Color.White) }
     }
     IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Configuración", tint = Cyan) }
