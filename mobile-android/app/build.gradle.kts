@@ -1,6 +1,30 @@
+import java.util.Properties
+
+val releaseSigning = Properties().apply {
+ val file = rootProject.file("release-signing.properties")
+ if (file.exists()) file.inputStream().use(::load)
+}
+
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose") }
 android { namespace="ar.com.jrelectricidad.jrserver"; compileSdk=35
  defaultConfig { applicationId="ar.com.jrelectricidad.jrserver"; minSdk=26; targetSdk=35; versionCode=2; versionName="1.0.1" }
+ signingConfigs {
+  if (releaseSigning.isNotEmpty()) {
+   create("release") {
+    storeFile=file(releaseSigning.getProperty("storeFile"))
+    storePassword=releaseSigning.getProperty("storePassword")
+    keyAlias=releaseSigning.getProperty("keyAlias")
+    keyPassword=releaseSigning.getProperty("keyPassword")
+   }
+  }
+ }
+ buildTypes {
+  getByName("release") {
+   isMinifyEnabled=false
+   isDebuggable=false
+   if (releaseSigning.isNotEmpty()) signingConfig=signingConfigs.getByName("release")
+  }
+ }
  compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
  kotlinOptions { jvmTarget="17" }
  buildFeatures { compose=true; buildConfig=true }
