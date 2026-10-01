@@ -11,6 +11,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.security.KeyStore
+import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -578,7 +579,7 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
     item{SettingsInfo(Icons.Default.Palette,"Tema","Neón JR Server",Cyan)}
    }
   }
-  if(section==0)item{OutlinedButton(onClick={updateBusy=true;updateMsg="Buscando actualización…";MobileApi.checkForUpdate{available,version,url,message->(context as? Activity)?.runOnUiThread{updateBusy=false;if(available&&url!=null){updateMsg="Nueva versión "+version+". Descargando…";MobileUpdater.downloadAndInstall(context,url){msg->(context as? Activity)?.runOnUiThread{updateMsg=msg}}}else updateMsg=message}}},enabled=!updateBusy,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.SystemUpdate,"Actualizar");Spacer(Modifier.width(8.dp));Text(if(updateBusy)"Buscando…" else "Buscar actualización")}}
+  if(section==0)item{OutlinedButton(onClick={updateBusy=true;updateMsg="Buscando actualización…";MobileApi.checkForUpdate{available,version,url,sha256,message->(context as? Activity)?.runOnUiThread{updateBusy=false;if(available&&url!=null&&sha256!=null){updateMsg="Nueva versión "+version+". Descargando…";MobileUpdater.downloadAndInstall(context,url,sha256){msg->(context as? Activity)?.runOnUiThread{updateMsg=msg}}}else updateMsg=message}}},enabled=!updateBusy,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.SystemUpdate,"Actualizar");Spacer(Modifier.width(8.dp));Text(if(updateBusy)"Buscando…" else "Buscar actualización")}}
   if(section==0&&updateMsg!=null)item{Text(updateMsg!!,color=if(updateMsg!!.contains("actualizada",true))Green else Muted,fontSize=11.sp)}
   item{Button(onClick={MobileApi.saveSettings(mapOf("critical" to critical,"warnings" to warnings,"biometric" to biometric,"destructive_auth" to destructiveAuth));saved=true},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Save,"Guardar");Spacer(Modifier.width(8.dp));Text(if(saved)"Cambios guardados" else "Guardar cambios")}}
   if(saved)item{Text("Configuración guardada en este dispositivo",color=Green,fontSize=11.sp)}
@@ -604,7 +605,7 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
 }
 
 object MobileUpdater{
- fun downloadAndInstall(context:Context,url:String,status:(String)->Unit){
+ fun downloadAndInstall(context:Context,url:String,expectedSha256:String,status:(String)->Unit){
   val req=Request.Builder().url(url).build()
   OkHttpClient().newCall(req).enqueue(object:Callback{
    override fun onFailure(call:Call,e:IOException)=status("No se pudo descargar la actualización")
@@ -613,6 +614,8 @@ object MobileUpdater{
     try{
      val dir=File(context.cacheDir,"updates").apply{mkdirs()};val apk=File(dir,"jr-server-update.apk")
      r.body?.byteStream()?.use{input->apk.outputStream().use{output->input.copyTo(output)}}?:throw IOException("APK vacío")
+     val digest=MessageDigest.getInstance("SHA-256");apk.inputStream().use{input->val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<=0)break;digest.update(buffer,0,n)}};val actual=digest.digest().joinToString(""){"%02x".format(it)}
+     if(!actual.equals(expectedSha256.trim(),ignoreCase=true)){apk.delete();status("Actualización rechazada: SHA-256 no coincide");return}
      (context as? Activity)?.runOnUiThread{
       if(Build.VERSION.SDK_INT>=26&&!context.packageManager.canRequestPackageInstalls()){
        status("Permití instalar apps desde JR Server Mobile y volvé a tocar Buscar actualización")
@@ -667,7 +670,7 @@ object MobileApi{
  fun disconnect(){prefs().edit().remove("token").remove("token_secure").remove("token_iv").remove("last_level").remove("active_incidents").apply();runCatching{KeyStore.getInstance("AndroidKeyStore").apply{load(null);deleteEntry(TOKEN_ALIAS)}};WorkManager.getInstance(context).cancelUniqueWork("jr-monitor")}
  private fun request(path:String,method:String="GET",body:String?=null,done:(Int,String)->Unit){val b=Request.Builder().url(panelUrl()+path).header("Authorization","Bearer "+token());if(method=="POST")b.post((body?:"{}").toRequestBody("application/json".toMediaType()));client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(0,"");override fun onResponse(c:Call,r:Response){r.use{done(it.code,it.body?.string()?:"")}}})}
  fun pair(panel:String,user:String,pass:String,code:String,done:(Boolean,String)->Unit){val json=JSONObject().put("username",user).put("password",pass).put("code",code).put("deviceName",Build.MANUFACTURER+" "+Build.MODEL).toString();val base=try{normalizeUrl(panel)}catch(e:Exception){done(false,e.message?:"URL inválida");return};val req=Request.Builder().url(base+"/api/mobile/v1/pair").post(json.toRequestBody("application/json".toMediaType())).build();client.newCall(req).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(false,"No se pudo conectar");override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");if(it.isSuccessful&&j.optString("token").isNotBlank()){prefs().edit().putString("panel_url",base).apply();saveToken(j.getString("token"));done(true,"")}else done(false,"Credenciales o 2FA incorrectos")}catch(e:Exception){done(false,"Respuesta no válida")}}}})}
- fun checkForUpdate(done:(Boolean,String?,String?,String)->Unit)=request("/api/mobile/v1/app-update"){code,raw->if(code !in 200..299){done(false,null,null,"No se pudo consultar la actualización");return@request};try{val j=JSONObject(raw);val latest=j.optInt("versionCode",1);val current=BuildConfig.VERSION_CODE;if(latest>current)done(true,j.optString("versionName"),j.optString("apkUrl").takeIf{it.startsWith("https://")},"Actualización disponible")else done(false,j.optString("versionName"),null,"La app está actualizada") }catch(e:Exception){done(false,null,null,"Respuesta de actualización no válida")}}
+ fun checkForUpdate(done:(Boolean,String?,String?,String?,String)->Unit)=request("/api/mobile/v1/app-update"){code,raw->if(code !in 200..299){done(false,null,null,null,"No se pudo consultar la actualización");return@request};try{val j=JSONObject(raw);val latest=j.optInt("versionCode",1);val current=BuildConfig.VERSION_CODE;val url=j.optString("apkUrl").takeIf{it.startsWith("https://")};val sha=j.optString("sha256").takeIf{it.matches(Regex("^[A-Fa-f0-9]{64}$"))};if(latest>current&&url!=null&&sha!=null)done(true,j.optString("versionName"),url,sha,"Actualización disponible")else if(latest>current)done(false,j.optString("versionName"),null,null,"Actualización disponible pero falta URL o SHA-256 válido")else done(false,j.optString("versionName"),null,null,"La app está actualizada") }catch(e:Exception){done(false,null,null,null,"Respuesta de actualización no válida")}}
  fun statusJson(done:(JSONObject?)->Unit)=request("/api/mobile/v1/status"){code,raw->done(if(code in 200..299)runCatching{JSONObject(raw)}.getOrNull() else null)}
  fun overview(done:(MobileOverview)->Unit)=request("/api/mobile/v1/overview"){code,raw->if(code !in 200..299){done(MobileOverview());return@request};try{val j=JSONObject(raw);val n=j.getJSONObject("network");val b=j.optJSONObject("backup");val h=j.optJSONArray("health");var webOk=0;var latency=0;var latencyCount=0;if(h!=null)for(i in 0 until h.length()){val x=h.getJSONObject(i);if(x.optBoolean("ok"))webOk++;if(!x.isNull("latencyMs")){val ms=x.optInt("latencyMs",-1);if(ms>=0){latency+=ms;latencyCount++}}};if(latencyCount>0)latency/=latencyCount;val c=j.optJSONArray("certificates");var ssl:Int?=null;if(c!=null)for(i in 0 until c.length()){val d=c.getJSONObject(i).optInt("days",-1);if(d>=0&&(ssl==null||d<ssl!!))ssl=d};done(MobileOverview(n.optLong("rxPerSec"),n.optLong("txPerSec"),n.optString("interface","--"),j.optBoolean("maintenance"),b?.optJSONObject("last")?.optString("time"),webOk,h?.length()?:0,latency,ssl,n.optLong("rxBytes"),n.optLong("txBytes"),n.optInt("connections")))}catch(e:Exception){done(MobileOverview())}}
  fun quickAction(action:String,done:(Boolean,String)->Unit)=request("/api/mobile/v1/actions/"+action,"POST","{}"){code,raw->val ok=code in 200..299;done(ok,runCatching{JSONObject(raw).optString("message",if(ok)"Acción completada" else "Error")}.getOrDefault("Error"))}
