@@ -5,6 +5,10 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.core.content.FileProvider
+import java.io.File
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -488,6 +492,8 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
  var darkMode by remember{mutableStateOf(MobileApi.settingBool("dark_mode",true))}
  var selectedColor by remember{mutableIntStateOf(MobileApi.settingInt("theme_color",0))}
  var saved by remember{mutableStateOf(false)}
+ var updateMsg by remember{mutableStateOf<String?>(null)}
+ var updateBusy by remember{mutableStateOf(false)}
  val tabs=listOf("General","Red","Notificaciones","Seguridad","Apariencia")
  LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
   item{Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Volver")};Column(Modifier.weight(1f)){Text("Configuración",fontSize=24.sp,fontWeight=FontWeight.Bold);Text(server?.host?:MobileApi.panelUrl(),color=Muted,fontSize=11.sp)}}}
@@ -520,6 +526,8 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
     item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){listOf(Cyan,Green,Orange,Purple,Red).forEachIndexed{i,color->Box(Modifier.size(if(selectedColor==i)48.dp else 42.dp).background(color.copy(alpha=if(selectedColor==i).62f else .34f),CircleShape).border(if(selectedColor==i)4.dp else 2.dp,color,CircleShape).clickable{selectedColor=i},contentAlignment=Alignment.Center){if(selectedColor==i)Icon(Icons.Default.Check,"Seleccionado",tint=Color.White,modifier=Modifier.size(22.dp))}}}}
    }
   }
+  if(section==0)item{OutlinedButton(onClick={updateBusy=true;updateMsg="Buscando actualización…";MobileApi.checkForUpdate{available,version,url,message->(LocalContext.current as? Activity)?.runOnUiThread{updateBusy=false;if(available&&url!=null){updateMsg="Nueva versión "+version+". Descargando…";MobileUpdater.downloadAndInstall(LocalContext.current,url){msg->(LocalContext.current as? Activity)?.runOnUiThread{updateMsg=msg}}}else updateMsg=message}}},enabled=!updateBusy,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.SystemUpdate,"Actualizar");Spacer(Modifier.width(8.dp));Text(if(updateBusy)"Buscando…" else "Buscar actualización")}}
+  if(section==0&&updateMsg!=null)item{Text(updateMsg!!,color=if(updateMsg!!.contains("actualizada",true))Green else Muted,fontSize=11.sp)}
   item{Button(onClick={MobileApi.saveSettings(mapOf("updates" to updates,"backups" to backups,"email" to email,"whatsapp" to whatsapp,"critical" to critical,"warnings" to warnings,"biometric" to biometric,"destructive_auth" to destructiveAuth,"dark_mode" to darkMode),selectedColor);saved=true},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Save,"Guardar");Spacer(Modifier.width(8.dp));Text(if(saved)"Cambios guardados" else "Guardar cambios")}}
   if(saved)item{Text("Configuración guardada en este dispositivo",color=Green,fontSize=11.sp)}
   if(section==3)item{OutlinedButton(onClick=onDisconnect,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.outlinedButtonColors(contentColor=Red)){Text("Desvincular dispositivo")}}
@@ -535,12 +543,39 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
  Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center){Header("JR SERVER","Vincular este teléfono");Spacer(Modifier.height(24.dp));OutlinedTextField(panel,{panel=it},label={Text("URL del panel")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp));OutlinedTextField(user,{user=it},label={Text("Usuario")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp));OutlinedTextField(pass,{pass=it},label={Text("Contraseña")},visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp));OutlinedTextField(code,{code=it.filter(Char::isDigit).take(6)},label={Text("Código 2FA")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(14.dp));Button(onClick={busy=true;error=null;MobileApi.pair(panel,user,pass,code){ok,msg->(context as? Activity)?.runOnUiThread{busy=false;if(ok){MonitorScheduler.start(MobileApi.appContext());done()}else error=msg}}},enabled=!busy&&panel.isNotBlank()&&user.isNotBlank()&&pass.isNotBlank()&&code.length==6,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Vinculando…" else "VINCULAR")};error?.let{Text(it,color=Red,modifier=Modifier.padding(top=10.dp))}}
 }
 
+object MobileUpdater{
+ fun downloadAndInstall(context:Context,url:String,status:(String)->Unit){
+  val req=Request.Builder().url(url).build()
+  OkHttpClient().newCall(req).enqueue(object:Callback{
+   override fun onFailure(call:Call,e:IOException)=status("No se pudo descargar la actualización")
+   override fun onResponse(call:Call,response:Response){response.use{r->
+    if(!r.isSuccessful){status("Error al descargar APK");return}
+    try{
+     val dir=File(context.cacheDir,"updates").apply{mkdirs()};val apk=File(dir,"jr-server-update.apk")
+     r.body?.byteStream()?.use{input->apk.outputStream().use{output->input.copyTo(output)}}?:throw IOException("APK vacío")
+     (context as? Activity)?.runOnUiThread{
+      if(Build.VERSION.SDK_INT>=26&&!context.packageManager.canRequestPackageInstalls()){
+       status("Permití instalar apps desde JR Server Mobile y volvé a tocar Buscar actualización")
+       context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+context.packageName)))
+      }else{
+       val uri=FileProvider.getUriForFile(context,context.packageName+".fileprovider",apk)
+       val i=Intent(Intent.ACTION_VIEW).setDataAndType(uri,"application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+       context.startActivity(i);status("Actualización descargada. Confirmá la instalación.")
+      }
+     }
+    }catch(e:Exception){status("No se pudo preparar la actualización")}
+   }}
+  })
+ }
+}
+
 object MobileApi{
  private const val DEFAULT_URL="https://jrserver.jrelectricidad.com.ar";private val client=OkHttpClient();private lateinit var context:Context
  fun init(c:Context){context=c.applicationContext};fun appContext()=context;private fun prefs()=context.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE);fun settingBool(key:String,default:Boolean)=prefs().getBoolean("setting_"+key,default);fun settingInt(key:String,default:Int)=prefs().getInt("setting_"+key,default);fun saveSettings(values:Map<String,Boolean>,themeColor:Int){val e=prefs().edit();values.forEach{(k,v)->e.putBoolean("setting_"+k,v)};e.putInt("setting_theme_color",themeColor).apply()};fun panelUrl()=(prefs().getString("panel_url",DEFAULT_URL)?:DEFAULT_URL).trimEnd('/');private fun normalizeUrl(v:String):String{var x=v.trim().trimEnd('/');if(!x.startsWith("https://")&&!x.startsWith("http://"))x="https://"+x;require(x.startsWith("https://")){"JR Server Mobile requiere HTTPS"};return x};private fun token()=prefs().getString("token","")?:"";fun hasToken()=token().isNotBlank();private fun saveToken(v:String){prefs().edit().putString("token",v).apply()}
  fun disconnect(){prefs().edit().remove("token").remove("last_level").remove("active_incidents").apply();WorkManager.getInstance(context).cancelUniqueWork("jr-monitor")}
  private fun request(path:String,method:String="GET",body:String?=null,done:(Int,String)->Unit){val b=Request.Builder().url(panelUrl()+path).header("Authorization","Bearer "+token());if(method=="POST")b.post((body?:"{}").toRequestBody("application/json".toMediaType()));client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(0,"");override fun onResponse(c:Call,r:Response){r.use{done(it.code,it.body?.string()?:"")}}})}
  fun pair(panel:String,user:String,pass:String,code:String,done:(Boolean,String)->Unit){val json=JSONObject().put("username",user).put("password",pass).put("code",code).put("deviceName",Build.MANUFACTURER+" "+Build.MODEL).toString();val base=try{normalizeUrl(panel)}catch(e:Exception){done(false,e.message?:"URL inválida");return};val req=Request.Builder().url(base+"/api/mobile/v1/pair").post(json.toRequestBody("application/json".toMediaType())).build();client.newCall(req).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(false,"No se pudo conectar");override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");if(it.isSuccessful&&j.optString("token").isNotBlank()){prefs().edit().putString("panel_url",base).apply();saveToken(j.getString("token"));done(true,"")}else done(false,"Credenciales o 2FA incorrectos")}catch(e:Exception){done(false,"Respuesta no válida")}}}})}
+ fun checkForUpdate(done:(Boolean,String?,String?,String)->Unit)=request("/api/mobile/v1/app-update"){code,raw->if(code !in 200..299){done(false,null,null,"No se pudo consultar la actualización");return@request};try{val j=JSONObject(raw);val latest=j.optInt("versionCode",1);val current=BuildConfig.VERSION_CODE;if(latest>current)done(true,j.optString("versionName"),j.optString("apkUrl").takeIf{it.startsWith("https://")},"Actualización disponible")else done(false,j.optString("versionName"),null,"La app está actualizada") }catch(e:Exception){done(false,null,null,"Respuesta de actualización no válida")}}
  fun statusJson(done:(JSONObject?)->Unit)=request("/api/mobile/v1/status"){code,raw->done(if(code in 200..299)runCatching{JSONObject(raw)}.getOrNull() else null)}
  fun overview(done:(MobileOverview)->Unit)=request("/api/mobile/v1/overview"){code,raw->if(code !in 200..299){done(MobileOverview());return@request};try{val j=JSONObject(raw);val n=j.getJSONObject("network");val b=j.optJSONObject("backup");val h=j.optJSONArray("health");var webOk=0;var latency=0;var latencyCount=0;if(h!=null)for(i in 0 until h.length()){val x=h.getJSONObject(i);if(x.optBoolean("ok"))webOk++;if(!x.isNull("latencyMs")){val ms=x.optInt("latencyMs",-1);if(ms>=0){latency+=ms;latencyCount++}}};if(latencyCount>0)latency/=latencyCount;val c=j.optJSONArray("certificates");var ssl:Int?=null;if(c!=null)for(i in 0 until c.length()){val d=c.getJSONObject(i).optInt("days",-1);if(d>=0&&(ssl==null||d<ssl!!))ssl=d};done(MobileOverview(n.optLong("rxPerSec"),n.optLong("txPerSec"),n.optString("interface","--"),j.optBoolean("maintenance"),b?.optJSONObject("last")?.optString("time"),webOk,h?.length()?:0,latency,ssl,n.optLong("rxBytes"),n.optLong("txBytes"),n.optInt("connections")))}catch(e:Exception){done(MobileOverview())}}
  fun quickAction(action:String,done:(Boolean,String)->Unit)=request("/api/mobile/v1/actions/"+action,"POST","{}"){code,raw->val ok=code in 200..299;done(ok,runCatching{JSONObject(raw).optString("message",if(ok)"Acción completada" else "Error")}.getOrDefault("Error"))}
