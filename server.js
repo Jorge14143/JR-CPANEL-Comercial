@@ -50,7 +50,8 @@ app.get("/api/mobile/v1/overview",mobileAuth,async(req,res)=>{
   let certificates=[];if(sslR.status==="fulfilled")try{certificates=parseCertbot(sslR.value.stdout||"")}catch{}
   const maintenance=controlR.status==="fulfilled"&&/maintenance=on/.test(String(controlR.value.stdout||""));
   const health=await Promise.all(["https://jrelectricidad.com.ar","https://pruebas.jrelectricidad.com.ar","https://jrserver.jrelectricidad.com.ar"].map(async url=>{const t=Date.now();try{const rr=await fetch(url,{method:"HEAD",redirect:"manual",signal:AbortSignal.timeout(6000)});return{url,status:rr.status,ok:rr.status>=200&&rr.status<500,latencyMs:Date.now()-t}}catch{return{url,status:0,ok:false,latencyMs:Date.now()-t}}}));
-  res.set("Cache-Control","no-store").json({network:{interface:liveNetwork.interface,rxPerSec:liveNetwork.rxPerSec||0,txPerSec:liveNetwork.txPerSec||0,rxBytes:liveNetwork.rxBytes||0,txBytes:liveNetwork.txBytes||0,requestsPerSec:liveNetwork.nginxRequestsPerSec||0},backup:{last:lastBackup,ok:!!lastBackup},certificates,health,maintenance,updatedAt:new Date().toISOString()});
+  const connectionCount=Number(await cmd("sh",["-c","ss -Htan state established 2>/dev/null | wc -l"]))||0;
+  res.set("Cache-Control","no-store").json({network:{interface:liveNetwork.interface,rxPerSec:liveNetwork.rxPerSec||0,txPerSec:liveNetwork.txPerSec||0,rxBytes:liveNetwork.rxBytes||0,txBytes:liveNetwork.txBytes||0,requestsPerSec:liveNetwork.nginxRequestsPerSec||0,connections:connectionCount},backup:{last:lastBackup,ok:!!lastBackup},certificates,health,maintenance,updatedAt:new Date().toISOString()});
  }catch(e){res.status(500).json({error:"mobile_overview_unavailable"})}
 });
 app.post("/api/mobile/v1/actions/:action",mobileAuth,async(req,res)=>{
