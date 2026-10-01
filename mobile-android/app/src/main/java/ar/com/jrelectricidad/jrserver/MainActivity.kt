@@ -83,7 +83,7 @@ class MainActivity:FragmentActivity(){
 @Composable fun JRServerApp(){
  val context=LocalContext.current
  var state by remember{mutableStateOf(MonitorState())};var overview by remember{mutableStateOf(MobileOverview())};var incidents by remember{mutableStateOf(emptyList<IncidentState>())};var services by remember{mutableStateOf(emptyList<ServiceState>())};var systemServices by remember{mutableStateOf(emptyList<SystemServiceState>())};var detailServices by remember{mutableStateOf(emptyList<ServiceState>())};var detailSystemServices by remember{mutableStateOf(emptyList<SystemServiceState>())}
- var tab by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())};var selected by remember{mutableStateOf<ServerState?>(null)};var refreshing by remember{mutableStateOf(false)};var settings by remember{mutableStateOf(false)};var maintenanceServer by remember{mutableStateOf<ServerState?>(null)}
+ var tab by remember{mutableIntStateOf(0)};var seenAlerts by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())};var selected by remember{mutableStateOf<ServerState?>(null)};var refreshing by remember{mutableStateOf(false)};var settings by remember{mutableStateOf(false)};var maintenanceServer by remember{mutableStateOf<ServerState?>(null)}
  var rxHistory by remember{mutableStateOf(listOf<Long>())};var txHistory by remember{mutableStateOf(listOf<Long>())}
  fun refresh(){
   refreshing=true
