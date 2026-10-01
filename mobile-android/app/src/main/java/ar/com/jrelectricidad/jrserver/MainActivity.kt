@@ -139,7 +139,7 @@ class MainActivity:FragmentActivity(){
 @Composable fun JRServerApp(){
  val context=LocalContext.current
  var state by remember{mutableStateOf(MonitorState())};var overview by remember{mutableStateOf(MobileOverview())};var incidents by remember{mutableStateOf(emptyList<IncidentState>())};var services by remember{mutableStateOf(emptyList<ServiceState>())};var systemServices by remember{mutableStateOf(emptyList<SystemServiceState>())};var detailServices by remember{mutableStateOf(emptyList<ServiceState>())};var detailSystemServices by remember{mutableStateOf(emptyList<SystemServiceState>())}
- var tab by remember{mutableIntStateOf(0)};var seenAlerts by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())};var selected by remember{mutableStateOf<ServerState?>(null)};var refreshing by remember{mutableStateOf(false)};var settings by remember{mutableStateOf(false)};var maintenanceServer by remember{mutableStateOf<ServerState?>(null)}
+ var tab by remember{mutableIntStateOf(0)};var seenAlerts by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())};var selected by remember{mutableStateOf<ServerState?>(null)};var refreshing by remember{mutableStateOf(false)};var settings by remember{mutableStateOf(false)};var addServer by remember{mutableStateOf(false)};var maintenanceServer by remember{mutableStateOf<ServerState?>(null)};var remoteNetwork by remember{mutableStateOf(MobileOverview())}
  var rxHistory by remember{mutableStateOf(listOf<Long>())};var txHistory by remember{mutableStateOf(listOf<Long>())}
  fun refresh(){
   refreshing=true
@@ -163,15 +163,17 @@ class MainActivity:FragmentActivity(){
  }
  if(!paired){PairScreen{paired=true};return}
  LaunchedEffect(paired){while(paired){refresh();delay(3000)}}
- BackHandler(enabled=settings||maintenanceServer!=null||selected!=null||tab!=0){
+ BackHandler(enabled=settings||addServer||maintenanceServer!=null||selected!=null||tab!=0){
   when{
    settings->{settings=false}
+   addServer->{addServer=false}
    maintenanceServer!=null->{maintenanceServer=null}
    selected!=null->{selected=null}
    tab!=0->{tab=0}
   }
  }
  if(settings){CommercialSettingsScreen(state.servers.firstOrNull(),overview,onBack={settings=false},onDisconnect={MobileApi.disconnect();paired=false;settings=false});return}
+ if(addServer){AddServerScreen(onBack={addServer=false});return}
  if(maintenanceServer!=null){MaintenanceScreen(maintenanceServer!!,overview,onBack={maintenanceServer=null},onRefresh={refresh()});return}
  if(selected!=null){
   val current=selected!!
@@ -183,14 +185,15 @@ class MainActivity:FragmentActivity(){
     detailServices=emptyList()
     detailSystemServices=emptyList()
     MobileApi.serverSystemServices(current.id){value->(context as? Activity)?.runOnUiThread{detailSystemServices=value}}
+    MobileApi.serverNetwork(current.id){value->(context as? Activity)?.runOnUiThread{remoteNetwork=value}}
    }
   }
   LaunchedEffect(services,systemServices,current.id){if(current.id=="local"){detailServices=services;detailSystemServices=systemServices}}
-  ServerDetail(current,detailServices,detailSystemServices,overview,incidents,rxHistory,txHistory,onBack={selected=null},onRefresh={
-   if(current.id=="local")refresh() else MobileApi.serverSystemServices(current.id){value->(context as? Activity)?.runOnUiThread{detailSystemServices=value}}
+  ServerDetail(current,detailServices,detailSystemServices,if(current.id=="local")overview else remoteNetwork,incidents,rxHistory,txHistory,onBack={selected=null},onRefresh={
+   if(current.id=="local")refresh() else {MobileApi.serverSystemServices(current.id){value->(context as? Activity)?.runOnUiThread{detailSystemServices=value}};MobileApi.serverNetwork(current.id){value->(context as? Activity)?.runOnUiThread{remoteNetwork=value}}}
   });return
  }
- Scaffold(containerColor=Navy,bottomBar={BottomNav(tab,state.alerts){tab=it}}){pad->Box(Modifier.padding(pad).fillMaxSize()){when(tab){1->IncidentList(incidents);2->ActionsScreen(state.servers.firstOrNull(),overview,onMaintenance={maintenanceServer=state.servers.firstOrNull()},onRefresh={refresh()});3->IncidentHistory(incidents);else->Dashboard(state,overview,refreshing,onRefresh={refresh()},onSettings={settings=true},onServer={selected=it},onAlerts={tab=1})}}}
+ Scaffold(containerColor=Navy,bottomBar={BottomNav(tab,state.alerts){tab=it}}){pad->Box(Modifier.padding(pad).fillMaxSize()){when(tab){1->IncidentList(incidents);2->ActionsScreen(state.servers.firstOrNull(),overview,onMaintenance={maintenanceServer=state.servers.firstOrNull()},onRefresh={refresh()});3->IncidentHistory(incidents);else->Dashboard(state,overview,refreshing,onRefresh={refresh()},onSettings={settings=true},onAddServer={addServer=true},onServer={selected=it},onAlerts={tab=1})}}}
 }
 
 @Composable
@@ -232,6 +235,7 @@ fun Dashboard(
  refreshing: Boolean,
  onRefresh: () -> Unit,
  onSettings: () -> Unit,
+ onAddServer: () -> Unit,
  onServer: (ServerState) -> Unit,
  onAlerts: () -> Unit
 ) {
@@ -255,7 +259,7 @@ fun Dashboard(
   item {
    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
     Text("Mis servidores", fontSize = 27.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-    FilledIconButton(onClick = onRefresh, colors = IconButtonDefaults.filledIconButtonColors(containerColor = Blue)) {
+    FilledIconButton(onClick = onAddServer, colors = IconButtonDefaults.filledIconButtonColors(containerColor = Blue)) {
      Icon(Icons.Default.Add, "Agregar", tint = Color.White)
     }
    }
@@ -405,7 +409,7 @@ fun formatRate(v:Long):String{val b=v.toDouble();return when{b>=125000000->"%.1f
   Box(Modifier.weight(1f)){when(page){
    0->if(local) SummaryTab(server,overview,rxHistory,txHistory) else RemoteSummaryTab(server,systemServices)
    1->ServicesTab(services,systemServices,onRefresh)
-   2->if(local) NetworkTab(overview,rxHistory,txHistory) else RemoteNetworkTab(server)
+   2->if(local) NetworkTab(overview,rxHistory,txHistory) else RemoteNetworkTab(server,overview)
    else->LogsTab(serverIncidents)
   }}
  }
@@ -415,7 +419,7 @@ fun formatRate(v:Long):String{val b=v.toDouble();return when{b>=125000000->"%.1f
 @Composable fun ServerTabs(page:Int,set:(Int)->Unit){val names=listOf("Resumen","Servicios","Red","Logs");Row(Modifier.fillMaxWidth().padding(horizontal=12.dp).background(Color(0xFF071421),RoundedCornerShape(14.dp))){names.forEachIndexed{i,n->Box(Modifier.weight(1f).clickable{set(i)}.then(if(page==i)Modifier.background(Color(0xFF063A76),RoundedCornerShape(12.dp)) else Modifier).padding(vertical=14.dp),contentAlignment=Alignment.Center){Text(n,color=if(page==i)Cyan else Color(0xFFC4D0E2),fontWeight=if(page==i)FontWeight.Bold else FontWeight.Normal)}}}}
 @Composable fun SummaryTab(s:ServerState,o:MobileOverview,rxHistory:List<Long>,txHistory:List<Long>){LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){MetricBar("CPU",s.cpu?:0,Green,Modifier.weight(1f));MetricBar("RAM",s.ram?:0,Blue,Modifier.weight(1f));MetricBar("DISCO",s.disk?:0,Orange,Modifier.weight(1f))}};item{NetworkChart(o,rxHistory,txHistory)};item{Text("Estado general",fontWeight=FontWeight.Bold,fontSize=18.sp)};item{StatusRows(o)}}}
 @Composable fun RemoteSummaryTab(s:ServerState,system:List<SystemServiceState>){LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){MetricBar("CPU",s.cpu?:0,Green,Modifier.weight(1f));MetricBar("RAM",s.ram?:0,Blue,Modifier.weight(1f));MetricBar("DISCO",s.disk?:0,Orange,Modifier.weight(1f))}};item{Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){Text("Estado del servidor",fontWeight=FontWeight.Bold,fontSize=18.sp);Spacer(Modifier.height(8.dp));StatusLine(Icons.Default.Dns,"Agente remoto",if(s.online)"Online" else "Offline",if(s.online)Green else Red,s.uptime?.let{formatUptime(it)}?:"--");StatusLine(Icons.Default.Memory,"Servicios detectados",system.size.toString(),Blue,system.count{it.active}.toString()+" activos");s.temp?.let{StatusLine(Icons.Default.Thermostat,"Temperatura",it+" °C",if((it.toDoubleOrNull()?:0.0)>=75)Orange else Green,"")}}}};item{Text("Servicios del servidor",fontWeight=FontWeight.Bold,fontSize=18.sp)};if(system.isEmpty())item{Text("Esperando datos del agente…",color=Muted)}else items(system.take(6)){x->StatusLine(serviceIcon(x.label),x.label,if(x.active)"Online" else x.state,if(x.active)Green else Red,x.name)}}}
-@Composable fun RemoteNetworkTab(s:ServerState){LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp)){Icon(Icons.Default.Lan,"Red",tint=Cyan,modifier=Modifier.size(32.dp));Spacer(Modifier.height(10.dp));Text("Red de "+s.name,fontWeight=FontWeight.Bold,fontSize=18.sp);Spacer(Modifier.height(6.dp));Text("El agente remoto todavía no envía telemetría de red. No se muestran datos del servidor principal para evitar información incorrecta.",color=Muted,fontSize=12.sp)}}}}}
+@Composable fun RemoteNetworkTab(s:ServerState,o:MobileOverview){LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Text("Red de "+s.name,fontWeight=FontWeight.Bold,fontSize=20.sp)};item{Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp)){StatusLine(Icons.Default.Lan,o.iface,if(o.iface!="--")"Activa" else "Sin datos",if(o.iface!="--")Green else Orange,formatRate(o.rx)+" ↓  "+formatRate(o.tx)+" ↑");Spacer(Modifier.height(12.dp));Row{MiniMetric("DESCARGA",formatRate(o.rx),Cyan,Modifier.weight(1f));Spacer(Modifier.width(8.dp));MiniMetric("SUBIDA",formatRate(o.tx),Green,Modifier.weight(1f))};Spacer(Modifier.height(12.dp));Text("Recibido "+formatBytesTotal(o.rxBytes)+" · Enviado "+formatBytesTotal(o.txBytes),color=Muted,fontSize=11.sp)}}}}}
 
 @Composable fun MetricBar(label:String,value:Int,color:Color,modifier:Modifier){Card(modifier,shape=RoundedCornerShape(13.dp),colors=CardDefaults.cardColors(containerColor=Panel),border=CardDefaults.outlinedCardBorder()){Column(Modifier.padding(14.dp)){Text(label,color=Muted,fontSize=12.sp);Text(value.toString()+"%",fontSize=23.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(10.dp));LinearProgressIndicator(progress={value/100f},modifier=Modifier.fillMaxWidth().height(8.dp),color=color,trackColor=Panel2,strokeCap=StrokeCap.Round)}}}
 @Composable fun NetworkChart(o:MobileOverview,rxHistory:List<Long>,txHistory:List<Long>){val peak=max(1L,(rxHistory+txHistory+listOf(o.rx,o.tx)).maxOrNull()?:1L);val step=when{peak<=25_000_000L->25_000_000L;peak<=50_000_000L->50_000_000L;peak<=100_000_000L->100_000_000L;peak<=250_000_000L->250_000_000L;peak<=500_000_000L->500_000_000L;else->1_000_000_000L};val top=max(step,ceil(peak.toDouble()/step).toLong()*step);Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFF062A45)),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(Blue.copy(alpha=.90f)))){Column(Modifier.padding(14.dp)){Row(Modifier.fillMaxWidth()){Text("Tráfico de red",fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Text("↓ "+formatRate(o.rx),color=Cyan);Spacer(Modifier.width(14.dp));Text("↑ "+formatRate(o.tx),color=Red)};Spacer(Modifier.height(10.dp));Row(Modifier.fillMaxWidth()){Column(Modifier.height(120.dp),verticalArrangement=Arrangement.SpaceBetween){Text(formatAxis(top),color=Muted,fontSize=9.sp);Text(formatAxis(top/2),color=Muted,fontSize=9.sp);Text("0",color=Muted,fontSize=9.sp)};Spacer(Modifier.width(8.dp));Canvas(Modifier.weight(1f).height(120.dp)){listOf(0f,.5f,1f).forEach{fraction->val y=size.height*fraction;drawLine(Color(0xFF164968),androidx.compose.ui.geometry.Offset(0f,y),androidx.compose.ui.geometry.Offset(size.width,y),1f)};fun drawSeries(values:List<Long>,color:Color){if(values.size<2)return;val p=Path();values.forEachIndexed{i,value->val x=size.width*i/(values.size-1);val y=size.height-(size.height*(value.toFloat()/top.toFloat()).coerceIn(0f,1f));if(i==0)p.moveTo(x,y)else p.lineTo(x,y)};drawPath(p,color,style=Stroke(width=4f,cap=StrokeCap.Round))};drawSeries(rxHistory,Cyan);drawSeries(txHistory,Green)}};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Hace 3 min",color=Muted,fontSize=10.sp);Text("Ahora",color=Muted,fontSize=10.sp)}}}}
@@ -504,10 +508,11 @@ fun formatBytes(v:Long):String=if(v<=0)"0 MB" else "${v/1024/1024} MB"
 fun formatUptime(v:Long):String{val d=v/86400;val h=(v%86400)/3600;return if(d>0)"${d} d, ${h} h" else "${h} h"}
 
 @Composable fun IncidentList(data:List<IncidentState>){
+ val active=data.filter{it.event!="resolved"}
  var filter by remember{mutableIntStateOf(0)}
- val shown=data.filter{filter==0||(filter==1&&it.level.contains("crit",true))||(filter==2&&!it.level.contains("crit",true))}
+ val shown=active.filter{filter==0||(filter==1&&it.level.contains("crit",true))||(filter==2&&!it.level.contains("crit",true))}
  LazyColumn(Modifier.fillMaxSize().padding(horizontal=18.dp),contentPadding=PaddingValues(top=18.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-  item{Row(verticalAlignment=Alignment.CenterVertically){Text("JR",fontSize=31.sp,fontWeight=FontWeight.Black);Spacer(Modifier.width(9.dp));Text("Server Mobile",fontSize=15.sp);Spacer(Modifier.weight(1f));BadgedBox(badge={if(data.isNotEmpty())Badge(containerColor=Red){Text(data.size.toString())}}){Icon(Icons.Default.Notifications,"Alertas")};Spacer(Modifier.width(16.dp));Icon(Icons.Default.Settings,"Ajustes")}}
+  item{Row(verticalAlignment=Alignment.CenterVertically){Text("JR",fontSize=31.sp,fontWeight=FontWeight.Black);Spacer(Modifier.width(9.dp));Text("Server Mobile",fontSize=15.sp);Spacer(Modifier.weight(1f));BadgedBox(badge={if(active.isNotEmpty())Badge(containerColor=Red){Text(active.size.toString())}}){Icon(Icons.Default.Notifications,"Alertas")};Spacer(Modifier.width(16.dp));Icon(Icons.Default.Settings,"Ajustes")}}
   item{Text("Alertas",fontSize=28.sp,fontWeight=FontWeight.Bold)}
   item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=filter==0,onClick={filter=0},label={Text("Todas")});FilterChip(selected=filter==1,onClick={filter=1},label={Text("🔴 Críticas")});FilterChip(selected=filter==2,onClick={filter=2},label={Text("🟠 Advertencias")})}}
   if(shown.isEmpty())item{Text("No hay alertas en este filtro",color=Muted)}
@@ -576,6 +581,14 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
 
 @Composable fun SettingsToggle(icon:androidx.compose.ui.graphics.vector.ImageVector,title:String,sub:String,color:Color,value:Boolean,onChange:(Boolean)->Unit){Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF07263E)),modifier=Modifier.fillMaxWidth(),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(color.copy(alpha=.62f)))){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(40.dp).background(color.copy(alpha=.34f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Icon(icon,title,tint=color)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(title,fontWeight=FontWeight.Bold);Text(sub,color=Muted,fontSize=10.sp)};Switch(checked=value,onCheckedChange=onChange)}}}
 
+@Composable fun AddServerScreen(onBack:()->Unit){
+ Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
+  Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Volver")};Column{Text("Agregar servidor",fontSize=24.sp,fontWeight=FontWeight.Bold);Text("El alta y emparejamiento se realiza desde Multi Server en el panel web.",color=Muted,fontSize=11.sp)}}
+  Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp)){Icon(Icons.Default.Dns,"Servidor",tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.height(12.dp));Text("Agregar un servidor remoto",fontWeight=FontWeight.Bold,fontSize=18.sp);Spacer(Modifier.height(8.dp));Text("Por seguridad, la app no genera credenciales de agente. Agregá el servidor desde JR Server Panel → Multi Server, instalá el agente y aparecerá automáticamente en esta lista.",color=Muted)}}
+  Button(onClick=onBack,modifier=Modifier.fillMaxWidth()){Text("ENTENDIDO")}
+ }
+}
+
 @Composable fun PairScreen(done:()->Unit){
  val context=LocalContext.current;var panel by remember{mutableStateOf(MobileApi.panelUrl())};var user by remember{mutableStateOf("")};var pass by remember{mutableStateOf("")};var code by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
  Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center){Header("JR SERVER","Vincular este teléfono");Spacer(Modifier.height(24.dp));OutlinedTextField(panel,{panel=it},label={Text("URL del panel")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp));OutlinedTextField(user,{user=it},label={Text("Usuario")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp));OutlinedTextField(pass,{pass=it},label={Text("Contraseña")},visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp));OutlinedTextField(code,{code=it.filter(Char::isDigit).take(6)},label={Text("Código 2FA")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(14.dp));Button(onClick={busy=true;error=null;MobileApi.pair(panel,user,pass,code){ok,msg->(context as? Activity)?.runOnUiThread{busy=false;if(ok){MonitorScheduler.start(MobileApi.appContext());done()}else error=msg}}},enabled=!busy&&panel.isNotBlank()&&user.isNotBlank()&&pass.isNotBlank()&&code.length==6,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Vinculando…" else "VINCULAR")};error?.let{Text(it,color=Red,modifier=Modifier.padding(top=10.dp))}}
@@ -622,6 +635,7 @@ object MobileApi{
  fun incidents(done:(List<IncidentState>)->Unit)=request("/api/mobile/v1/incidents?limit=100"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).optJSONArray("history");val out=buildList{if(a!=null)for(i in a.length()-1 downTo 0){val x=a.getJSONObject(i);add(IncidentState(x.optString("event"),x.optString("server"),x.optString("title"),x.optString("level"),x.optString("time")))}};done(out)}catch(e:Exception){done(emptyList())}}
  fun services(done:(List<ServiceState>)->Unit)=request("/api/mobile/v1/services"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).getJSONArray("services");val out=buildList{for(i in 0 until a.length()){val x=a.getJSONObject(i);add(ServiceState(x.optString("name"),x.optString("status"),x.optInt("cpu"),x.optLong("memory"),x.optInt("restarts")))}};done(out)}catch(e:Exception){done(emptyList())}}
  fun systemServices(done:(List<SystemServiceState>)->Unit)=request("/api/mobile/v1/system-services"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).getJSONArray("services");val out=buildList{for(i in 0 until a.length()){val x=a.getJSONObject(i);add(SystemServiceState(x.optString("name"),x.optString("label"),x.optString("state"),x.optBoolean("active"),x.optString("enabled"),x.optBoolean("controllable")))}};done(out)}catch(e:Exception){done(emptyList())}}
+ fun serverNetwork(id:String,done:(MobileOverview)->Unit)=request("/api/mobile/v1/servers/${java.net.URLEncoder.encode(id,"UTF-8")}/network"){code,raw->if(code !in 200..299){done(MobileOverview());return@request};try{val n=JSONObject(raw).getJSONObject("network");done(MobileOverview(rx=n.optLong("rxPerSec"),tx=n.optLong("txPerSec"),iface=n.optString("interface","--"),rxBytes=n.optLong("rxBytes"),txBytes=n.optLong("txBytes")))}catch(e:Exception){done(MobileOverview())}}
  fun serverSystemServices(id:String,done:(List<SystemServiceState>)->Unit)=request("/api/mobile/v1/servers/${java.net.URLEncoder.encode(id,"UTF-8")}/system-services"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).getJSONArray("services");val out=buildList{for(i in 0 until a.length()){val x=a.getJSONObject(i);add(SystemServiceState(x.optString("name"),x.optString("label"),x.optString("state"),x.optBoolean("active"),x.optString("enabled"),false))}};done(out)}catch(e:Exception){done(emptyList())}}
  fun systemServiceAction(name:String,action:String,done:(Boolean,String)->Unit)=request("/api/mobile/v1/system-services/${java.net.URLEncoder.encode(name,"UTF-8")}/$action","POST","{}"){code,raw->val ok=code in 200..299;val message=if(ok)"Acción ejecutada correctamente" else runCatching{JSONObject(raw).optString("error")}.getOrDefault("Error al ejecutar");done(ok,message)}
  fun serviceAction(name:String,action:String,done:(Boolean,String)->Unit)=request("/api/mobile/v1/services/${java.net.URLEncoder.encode(name,"UTF-8")}/$action","POST","{}"){code,raw->val ok=code in 200..299;val message=if(ok)"Acción ejecutada correctamente" else runCatching{JSONObject(raw).optString("error")}.getOrDefault("Error al ejecutar");done(ok,message)}
