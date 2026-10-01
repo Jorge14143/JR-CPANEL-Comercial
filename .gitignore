@@ -6,3 +6,7 @@ data/
 
 package-lock.json
 sistemas-operativos/
+mobile-android/release-signing.properties
+*.jks
+*.keystore
+downloads/*.apk
