@@ -75,11 +75,64 @@ data class MobileOverview(val rx:Long=0,val tx:Long=0,val iface:String="--",val 
 data class MonitorState(val level:String="loading",val cpu:Int=0,val ram:Int=0,val disk:Int=0,val temp:String="--",val alerts:Int=0,val servers:List<ServerState> = emptyList(),val error:String?=null)
 
 class MainActivity:FragmentActivity(){
+ private var appUnlocked=false
+ private var authInProgress=false
+
  override fun onCreate(savedInstanceState:Bundle?){
   super.onCreate(savedInstanceState)
   MobileApi.init(applicationContext);AlertNotifier.channel(applicationContext);MonitorScheduler.start(applicationContext)
   if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),40)
-  setContent{MaterialTheme(colorScheme=darkColorScheme(background=Navy,surface=Panel,primary=Blue,error=Red)){Surface(Modifier.fillMaxSize(),color=Navy){JRServerApp()}}}
+  showApp()
+ }
+
+ override fun onStart(){
+  super.onStart()
+  if(MobileApi.hasToken()&&!appUnlocked&&!authInProgress)requestAppUnlock()
+ }
+
+ override fun onStop(){
+  super.onStop()
+  if(!authInProgress)appUnlocked=false
+ }
+
+ private fun showApp(){
+  setContent{
+   MaterialTheme(colorScheme=darkColorScheme(background=Navy,surface=Panel,primary=Blue,error=Red)){
+    Surface(Modifier.fillMaxSize(),color=Navy){
+     if(!MobileApi.hasToken()||appUnlocked)JRServerApp() else AppLockedScreen{requestAppUnlock()}
+    }
+   }
+  }
+ }
+
+ private fun requestAppUnlock(){
+  if(authInProgress||!MobileApi.hasToken())return
+  authInProgress=true
+  val executor=ContextCompat.getMainExecutor(this)
+  val prompt=BiometricPrompt(this,executor,object:BiometricPrompt.AuthenticationCallback(){
+   override fun onAuthenticationSucceeded(result:BiometricPrompt.AuthenticationResult){
+    authInProgress=false;appUnlocked=true;showApp()
+   }
+   override fun onAuthenticationError(errorCode:Int,errString:CharSequence){
+    authInProgress=false;appUnlocked=false;showApp()
+   }
+  })
+  val auth=androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+  val info=BiometricPrompt.PromptInfo.Builder()
+   .setTitle("Desbloquear JR Server Mobile")
+   .setSubtitle("Usá huella, PIN, patrón o contraseña del dispositivo")
+   .setAllowedAuthenticators(auth)
+   .build()
+  prompt.authenticate(info)
+ }
+}
+
+@Composable fun AppLockedScreen(onUnlock:()->Unit){
+ Column(Modifier.fillMaxSize().padding(28.dp),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){
+  Box(Modifier.size(72.dp).background(Blue.copy(alpha=.18f),RoundedCornerShape(20.dp)),contentAlignment=Alignment.Center){Icon(Icons.Default.Lock,"Bloqueado",tint=Cyan,modifier=Modifier.size(38.dp))}
+  Spacer(Modifier.height(20.dp));Text("JR Server Mobile",fontSize=25.sp,fontWeight=FontWeight.Bold)
+  Spacer(Modifier.height(8.dp));Text("Aplicación bloqueada",color=Muted)
+  Spacer(Modifier.height(22.dp));Button(onClick=onUnlock){Icon(Icons.Default.Fingerprint,"Desbloquear");Spacer(Modifier.width(8.dp));Text("DESBLOQUEAR")}
  }
 }
 
