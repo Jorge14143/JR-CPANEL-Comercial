@@ -7,6 +7,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 import androidx.core.content.FileProvider
 import java.io.File
 import android.os.Build
@@ -623,8 +631,40 @@ object MobileUpdater{
 
 object MobileApi{
  private const val DEFAULT_URL="https://jrserver.jrelectricidad.com.ar";private val client=OkHttpClient();private lateinit var context:Context
- fun init(c:Context){context=c.applicationContext};fun appContext()=context;private fun prefs()=context.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE);fun settingBool(key:String,default:Boolean)=prefs().getBoolean("setting_"+key,default);fun saveSettings(values:Map<String,Boolean>){val e=prefs().edit();values.forEach{(k,v)->e.putBoolean("setting_"+k,v)};e.apply()};fun panelUrl()=(prefs().getString("panel_url",DEFAULT_URL)?:DEFAULT_URL).trimEnd('/');private fun normalizeUrl(v:String):String{var x=v.trim().trimEnd('/');if(!x.startsWith("https://")&&!x.startsWith("http://"))x="https://"+x;require(x.startsWith("https://")){"JR Server Mobile requiere HTTPS"};return x};private fun token()=prefs().getString("token","")?:"";fun hasToken()=token().isNotBlank();private fun saveToken(v:String){prefs().edit().putString("token",v).apply()}
- fun disconnect(){prefs().edit().remove("token").remove("last_level").remove("active_incidents").apply();WorkManager.getInstance(context).cancelUniqueWork("jr-monitor")}
+ fun init(c:Context){context=c.applicationContext};fun appContext()=context;private fun prefs()=context.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE);fun settingBool(key:String,default:Boolean)=prefs().getBoolean("setting_"+key,default);fun saveSettings(values:Map<String,Boolean>){val e=prefs().edit();values.forEach{(k,v)->e.putBoolean("setting_"+k,v)};e.apply()};fun panelUrl()=(prefs().getString("panel_url",DEFAULT_URL)?:DEFAULT_URL).trimEnd('/');private fun normalizeUrl(v:String):String{var x=v.trim().trimEnd('/');if(!x.startsWith("https://")&&!x.startsWith("http://"))x="https://"+x;require(x.startsWith("https://")){"JR Server Mobile requiere HTTPS"};return x};private const val TOKEN_ALIAS="jr_mobile_token_key"
+ private fun tokenKey():SecretKey{
+  val ks=KeyStore.getInstance("AndroidKeyStore").apply{load(null)}
+  (ks.getKey(TOKEN_ALIAS,null) as? SecretKey)?.let{return it}
+  val kg=KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore")
+  kg.init(KeyGenParameterSpec.Builder(TOKEN_ALIAS,KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())
+  return kg.generateKey()
+ }
+ private fun decryptToken():String{
+  val encrypted=prefs().getString("token_secure",null)?:return ""
+  val iv=prefs().getString("token_iv",null)?:return ""
+  return runCatching{
+   val cipher=Cipher.getInstance("AES/GCM/NoPadding")
+   cipher.init(Cipher.DECRYPT_MODE,tokenKey(),GCMParameterSpec(128,Base64.decode(iv,Base64.NO_WRAP)))
+   String(cipher.doFinal(Base64.decode(encrypted,Base64.NO_WRAP)),Charsets.UTF_8)
+  }.getOrDefault("")
+ }
+ private fun migrateLegacyToken(){
+  val legacy=prefs().getString("token",null)
+  if(!legacy.isNullOrBlank()&&prefs().getString("token_secure",null).isNullOrBlank()){
+   saveToken(legacy)
+  }else if(!legacy.isNullOrBlank()&&decryptToken().isNotBlank()){
+   prefs().edit().remove("token").apply()
+  }
+ }
+ private fun token():String{migrateLegacyToken();return decryptToken()}
+ fun hasToken()=token().isNotBlank()
+ private fun saveToken(v:String){
+  val cipher=Cipher.getInstance("AES/GCM/NoPadding")
+  cipher.init(Cipher.ENCRYPT_MODE,tokenKey())
+  val encrypted=cipher.doFinal(v.toByteArray(Charsets.UTF_8))
+  prefs().edit().putString("token_secure",Base64.encodeToString(encrypted,Base64.NO_WRAP)).putString("token_iv",Base64.encodeToString(cipher.iv,Base64.NO_WRAP)).remove("token").apply()
+ }
+ fun disconnect(){prefs().edit().remove("token").remove("token_secure").remove("token_iv").remove("last_level").remove("active_incidents").apply();runCatching{KeyStore.getInstance("AndroidKeyStore").apply{load(null);deleteEntry(TOKEN_ALIAS)}};WorkManager.getInstance(context).cancelUniqueWork("jr-monitor")}
  private fun request(path:String,method:String="GET",body:String?=null,done:(Int,String)->Unit){val b=Request.Builder().url(panelUrl()+path).header("Authorization","Bearer "+token());if(method=="POST")b.post((body?:"{}").toRequestBody("application/json".toMediaType()));client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(0,"");override fun onResponse(c:Call,r:Response){r.use{done(it.code,it.body?.string()?:"")}}})}
  fun pair(panel:String,user:String,pass:String,code:String,done:(Boolean,String)->Unit){val json=JSONObject().put("username",user).put("password",pass).put("code",code).put("deviceName",Build.MANUFACTURER+" "+Build.MODEL).toString();val base=try{normalizeUrl(panel)}catch(e:Exception){done(false,e.message?:"URL inválida");return};val req=Request.Builder().url(base+"/api/mobile/v1/pair").post(json.toRequestBody("application/json".toMediaType())).build();client.newCall(req).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(false,"No se pudo conectar");override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");if(it.isSuccessful&&j.optString("token").isNotBlank()){prefs().edit().putString("panel_url",base).apply();saveToken(j.getString("token"));done(true,"")}else done(false,"Credenciales o 2FA incorrectos")}catch(e:Exception){done(false,"Respuesta no válida")}}}})}
  fun checkForUpdate(done:(Boolean,String?,String?,String)->Unit)=request("/api/mobile/v1/app-update"){code,raw->if(code !in 200..299){done(false,null,null,"No se pudo consultar la actualización");return@request};try{val j=JSONObject(raw);val latest=j.optInt("versionCode",1);val current=BuildConfig.VERSION_CODE;if(latest>current)done(true,j.optString("versionName"),j.optString("apkUrl").takeIf{it.startsWith("https://")},"Actualización disponible")else done(false,j.optString("versionName"),null,"La app está actualizada") }catch(e:Exception){done(false,null,null,"Respuesta de actualización no válida")}}
