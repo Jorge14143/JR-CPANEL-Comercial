@@ -98,7 +98,7 @@ class MainActivity:FragmentActivity(){
  private fun showApp(){
   setContent{
    MaterialTheme(colorScheme=darkColorScheme(background=Navy,surface=Panel,primary=Blue,error=Red)){
-    Surface(Modifier.fillMaxSize(),color=Navy){
+    Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),color=Navy){
      if(!MobileApi.hasToken()||appUnlocked)JRServerApp() else AppLockedScreen{requestAppUnlock()}
     }
    }
@@ -138,7 +138,7 @@ class MainActivity:FragmentActivity(){
 
 @Composable fun JRServerApp(){
  val context=LocalContext.current
- var state by remember{mutableStateOf(MonitorState())};var overview by remember{mutableStateOf(MobileOverview())};var incidents by remember{mutableStateOf(emptyList<IncidentState>())};var services by remember{mutableStateOf(emptyList<ServiceState>())};var systemServices by remember{mutableStateOf(emptyList<SystemServiceState>())};var detailServices by remember{mutableStateOf(emptyList<ServiceState>())};var detailSystemServices by remember{mutableStateOf(emptyList<SystemServiceState>())}
+ var state by remember{mutableStateOf(MonitorState())};var overview by remember{mutableStateOf(MobileOverview())};var incidents by remember{mutableStateOf(emptyList<IncidentState>())};var activeIncidents by remember{mutableStateOf(emptyList<IncidentState>())};var services by remember{mutableStateOf(emptyList<ServiceState>())};var systemServices by remember{mutableStateOf(emptyList<SystemServiceState>())};var detailServices by remember{mutableStateOf(emptyList<ServiceState>())};var detailSystemServices by remember{mutableStateOf(emptyList<SystemServiceState>())}
  var tab by remember{mutableIntStateOf(0)};var seenAlerts by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())};var selected by remember{mutableStateOf<ServerState?>(null)};var refreshing by remember{mutableStateOf(false)};var settings by remember{mutableStateOf(false)};var addServer by remember{mutableStateOf(false)};var maintenanceServer by remember{mutableStateOf<ServerState?>(null)};var remoteNetwork by remember{mutableStateOf(MobileOverview())}
  var rxHistory by remember{mutableStateOf(listOf<Long>())};var txHistory by remember{mutableStateOf(listOf<Long>())}
  fun refresh(){
@@ -150,7 +150,7 @@ class MainActivity:FragmentActivity(){
     selected=selected?.let { old -> value.servers.find { it.id==old.id } ?: old }
    }
   }
-  MobileApi.incidents { value -> (context as? Activity)?.runOnUiThread { incidents=value } }
+  MobileApi.incidents { value -> (context as? Activity)?.runOnUiThread { incidents=value } }\n  MobileApi.activeIncidents { value -> (context as? Activity)?.runOnUiThread { activeIncidents=value } }
   MobileApi.services { value -> (context as? Activity)?.runOnUiThread { services=value } }
   MobileApi.systemServices { value -> (context as? Activity)?.runOnUiThread { systemServices=value } }
   MobileApi.overview { value ->
@@ -193,14 +193,14 @@ class MainActivity:FragmentActivity(){
    if(current.id=="local")refresh() else {MobileApi.serverSystemServices(current.id){value->(context as? Activity)?.runOnUiThread{detailSystemServices=value}};MobileApi.serverNetwork(current.id){value->(context as? Activity)?.runOnUiThread{remoteNetwork=value}}}
   });return
  }
- Scaffold(containerColor=Navy,bottomBar={BottomNav(tab,state.alerts){tab=it}}){pad->Box(Modifier.padding(pad).fillMaxSize()){when(tab){1->IncidentList(incidents);2->ActionsScreen(state.servers.firstOrNull(),overview,onMaintenance={maintenanceServer=state.servers.firstOrNull()},onRefresh={refresh()});3->IncidentHistory(incidents);else->Dashboard(state,overview,refreshing,onRefresh={refresh()},onSettings={settings=true},onAddServer={addServer=true},onServer={selected=it},onAlerts={tab=1})}}}
+ Scaffold(containerColor=Navy,bottomBar={BottomNav(tab,activeIncidents.size){tab=it}}){pad->Box(Modifier.padding(pad).fillMaxSize()){when(tab){1->IncidentList(activeIncidents);2->ActionsScreen(state.servers.firstOrNull(),overview,onMaintenance={maintenanceServer=state.servers.firstOrNull()},onRefresh={refresh()});3->IncidentHistory(incidents);else->Dashboard(state,overview,refreshing,onRefresh={refresh()},onSettings={settings=true},onAddServer={addServer=true},onServer={selected=it},onAlerts={tab=1})}}}
 }
 
 @Composable
 fun BottomNav(tab:Int, alerts:Int, onTab:(Int)->Unit) {
  val icons = listOf(Icons.Default.Home, Icons.Default.Notifications, Icons.Default.Bolt, Icons.Default.History)
  val labels = listOf("Inicio", "Alertas", "Acciones", "Historial")
- NavigationBar(containerColor = Color(0xFF07131F), tonalElevation = 0.dp, modifier = Modifier.navigationBarsPadding()) {
+ NavigationBar(containerColor = Color(0xFF07131F), tonalElevation = 0.dp) {
   labels.indices.forEach { i ->
    NavigationBarItem(
     selected = tab == i,
@@ -250,7 +250,7 @@ fun Dashboard(
     Spacer(Modifier.width(9.dp))
     Text("Server Mobile", fontSize = 15.sp, fontWeight = FontWeight.Medium)
     Spacer(Modifier.weight(1f))
-    BadgedBox(badge = { if (state.alerts > 0) Badge(containerColor = Red) { Text(state.alerts.toString()) } }) {
+    BadgedBox(badge = { if (activeIncidents.size > 0) Badge(containerColor = Red) { Text(activeIncidents.size.toString()) } }) {
      IconButton(onClick = onAlerts) { Icon(Icons.Default.Notifications, "Alertas", tint = Color.White) }
     }
     IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Configuración", tint = Cyan) }
@@ -632,7 +632,7 @@ object MobileApi{
  fun quickAction(action:String,done:(Boolean,String)->Unit)=request("/api/mobile/v1/actions/"+action,"POST","{}"){code,raw->val ok=code in 200..299;done(ok,runCatching{JSONObject(raw).optString("message",if(ok)"Acción completada" else "Error")}.getOrDefault("Error"))}
  fun deploy(project:String,done:(Boolean,String)->Unit)=request("/api/mobile/v1/deploy/"+project,"POST","{}"){code,raw->val ok=code in 200..299;done(ok,runCatching{JSONObject(raw).optString("message",if(ok)"Deploy completado" else "Deploy falló")}.getOrDefault("Deploy falló"))}
  fun quickLogs(done:(String)->Unit)=request("/api/mobile/v1/quick-logs"){code,raw->if(code !in 200..299){done("No se pudieron cargar los logs");return@request};done(runCatching{val a=JSONObject(raw).getJSONArray("lines");buildString{for(i in maxOf(0,a.length()-10) until a.length())append(a.optString(i)).append("\n")}.trim()}.getOrDefault("Sin logs"))}
- fun incidents(done:(List<IncidentState>)->Unit)=request("/api/mobile/v1/incidents?limit=100"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).optJSONArray("history");val out=buildList{if(a!=null)for(i in a.length()-1 downTo 0){val x=a.getJSONObject(i);add(IncidentState(x.optString("event"),x.optString("server"),x.optString("title"),x.optString("level"),x.optString("time")))}};done(out)}catch(e:Exception){done(emptyList())}}
+ fun incidents(done:(List<IncidentState>)->Unit)=request("/api/mobile/v1/incidents?limit=100"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).optJSONArray("history");val out=buildList{if(a!=null)for(i in a.length()-1 downTo 0){val x=a.getJSONObject(i);add(IncidentState(x.optString("event"),x.optString("server"),x.optString("title"),x.optString("level"),x.optString("time")))}};done(out)}catch(e:Exception){done(emptyList())}}\n fun activeIncidents(done:(List<IncidentState>)->Unit)=request("/api/mobile/v1/incidents"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).optJSONArray("active");val out=buildList{if(a!=null)for(i in 0 until a.length()){val x=a.getJSONObject(i);add(IncidentState("active",x.optString("server"),x.optString("title"),x.optString("level"),x.optString("startedAt",x.optString("time"))))}};done(out)}catch(e:Exception){done(emptyList())}}
  fun services(done:(List<ServiceState>)->Unit)=request("/api/mobile/v1/services"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).getJSONArray("services");val out=buildList{for(i in 0 until a.length()){val x=a.getJSONObject(i);add(ServiceState(x.optString("name"),x.optString("status"),x.optInt("cpu"),x.optLong("memory"),x.optInt("restarts")))}};done(out)}catch(e:Exception){done(emptyList())}}
  fun systemServices(done:(List<SystemServiceState>)->Unit)=request("/api/mobile/v1/system-services"){code,raw->if(code !in 200..299){done(emptyList());return@request};try{val a=JSONObject(raw).getJSONArray("services");val out=buildList{for(i in 0 until a.length()){val x=a.getJSONObject(i);add(SystemServiceState(x.optString("name"),x.optString("label"),x.optString("state"),x.optBoolean("active"),x.optString("enabled"),x.optBoolean("controllable")))}};done(out)}catch(e:Exception){done(emptyList())}}
  fun serverNetwork(id:String,done:(MobileOverview)->Unit)=request("/api/mobile/v1/servers/${java.net.URLEncoder.encode(id,"UTF-8")}/network"){code,raw->if(code !in 200..299){done(MobileOverview());return@request};try{val n=JSONObject(raw).getJSONObject("network");done(MobileOverview(rx=n.optLong("rxPerSec"),tx=n.optLong("txPerSec"),iface=n.optString("interface","--"),rxBytes=n.optLong("rxBytes"),txBytes=n.optLong("txBytes")))}catch(e:Exception){done(MobileOverview())}}
