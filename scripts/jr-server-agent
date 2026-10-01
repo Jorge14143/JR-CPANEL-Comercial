@@ -34,7 +34,7 @@ def service_is_relevant(unit,name,desc):
     # of products such as Apache/Nginx/MySQL. New application services can
     # appear without updating the agent.
     n=name.lower();d=desc.lower()
-    noise_prefixes=("systemd-","getty","serial-getty","dbus","user@","polkit","rsyslog","journald","udev","logind","console-","keyboard-setup","kmod","modprobe","plymouth","procps","hwclock","ifupdown-")
+    noise_prefixes=("systemd-","getty","serial-getty","dbus","user@","polkit","rsyslog","journald","udev","logind","console-","keyboard-setup","kmod","modprobe","plymouth","procps","hwclock","ifupdown-","cron","qemu-guest-agent")
     if n.startswith(noise_prefixes):return False
     noise_words=("login service","device event","journal service","message bus","authorization manager","virtual console","kernel module","userspace out-of-memory")
     if any(x in d for x in noise_words):return False
