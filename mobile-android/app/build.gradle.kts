@@ -7,7 +7,7 @@ val releaseSigning = Properties().apply {
 
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose") }
 android { namespace="ar.com.jrelectricidad.jrserver"; compileSdk=35
- defaultConfig { applicationId="ar.com.jrelectricidad.jrserver"; minSdk=26; targetSdk=35; versionCode=2; versionName="1.0.1" }
+ defaultConfig { applicationId="ar.com.jrelectricidad.jrserver"; minSdk=26; targetSdk=35; versionCode=3; versionName="1.0.2" }
  signingConfigs {
   if (releaseSigning.isNotEmpty()) {
    create("release") {
