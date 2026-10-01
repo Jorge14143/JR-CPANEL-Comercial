@@ -81,7 +81,7 @@ class MainActivity:FragmentActivity(){
 
 @Composable fun JRServerApp(){
  val context=LocalContext.current
- var state by remember{mutableStateOf(MonitorState())};var overview by remember{mutableStateOf(MobileOverview())};var incidents by remember{mutableStateOf(emptyList<IncidentState>())};var services by remember{mutableStateOf(emptyList<ServiceState>())};var systemServices by remember{mutableStateOf(emptyList<SystemServiceState>())}
+ var state by remember{mutableStateOf(MonitorState())};var overview by remember{mutableStateOf(MobileOverview())};var incidents by remember{mutableStateOf(emptyList<IncidentState>())};var services by remember{mutableStateOf(emptyList<ServiceState>())};var systemServices by remember{mutableStateOf(emptyList<SystemServiceState>())};var detailServices by remember{mutableStateOf(emptyList<ServiceState>())};var detailSystemServices by remember{mutableStateOf(emptyList<SystemServiceState>())}
  var tab by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())};var selected by remember{mutableStateOf<ServerState?>(null)};var refreshing by remember{mutableStateOf(false)};var settings by remember{mutableStateOf(false)};var maintenanceServer by remember{mutableStateOf<ServerState?>(null)}
  var rxHistory by remember{mutableStateOf(listOf<Long>())};var txHistory by remember{mutableStateOf(listOf<Long>())}
  fun refresh(){
@@ -108,7 +108,23 @@ class MainActivity:FragmentActivity(){
  LaunchedEffect(paired){while(paired){refresh();delay(3000)}}
  if(settings){CommercialSettingsScreen(state.servers.firstOrNull(),overview,onBack={settings=false},onDisconnect={MobileApi.disconnect();paired=false;settings=false});return}
  if(maintenanceServer!=null){MaintenanceScreen(maintenanceServer!!,overview,onBack={maintenanceServer=null},onRefresh={refresh()});return}
- if(selected!=null){ServerDetail(selected!!,services,systemServices,overview,incidents,rxHistory,txHistory,onBack={selected=null},onRefresh={refresh()});return}
+ if(selected!=null){
+  val current=selected!!
+  LaunchedEffect(current.id){
+   if(current.id=="local"){
+    detailServices=services
+    detailSystemServices=systemServices
+   }else{
+    detailServices=emptyList()
+    detailSystemServices=emptyList()
+    MobileApi.serverSystemServices(current.id){value->(context as? Activity)?.runOnUiThread{detailSystemServices=value}}
+   }
+  }
+  LaunchedEffect(services,systemServices,current.id){if(current.id=="local"){detailServices=services;detailSystemServices=systemServices}}
+  ServerDetail(current,detailServices,detailSystemServices,overview,incidents,rxHistory,txHistory,onBack={selected=null},onRefresh={
+   if(current.id=="local")refresh() else MobileApi.serverSystemServices(current.id){value->(context as? Activity)?.runOnUiThread{detailSystemServices=value}}
+  });return
+ }
  Scaffold(containerColor=Navy,bottomBar={BottomNav(tab,state.alerts){tab=it}}){pad->Box(Modifier.padding(pad).fillMaxSize()){when(tab){1->IncidentList(incidents);2->ActionsScreen(state.servers.firstOrNull(),overview,onMaintenance={maintenanceServer=state.servers.firstOrNull()},onRefresh={refresh()});3->IncidentHistory(incidents);else->Dashboard(state,overview,refreshing,onRefresh={refresh()},onSettings={settings=true},onServer={selected=it},onAlerts={tab=1})}}}
 }
 
@@ -116,7 +132,7 @@ class MainActivity:FragmentActivity(){
 fun BottomNav(tab:Int, alerts:Int, onTab:(Int)->Unit) {
  val icons = listOf(Icons.Default.Home, Icons.Default.Notifications, Icons.Default.Bolt, Icons.Default.History)
  val labels = listOf("Inicio", "Alertas", "Acciones", "Historial")
- NavigationBar(containerColor = Color(0xFF07131F), tonalElevation = 0.dp, modifier = Modifier.height(72.dp)) {
+ NavigationBar(containerColor = Color(0xFF07131F), tonalElevation = 0.dp, modifier = Modifier.navigationBarsPadding()) {
   labels.indices.forEach { i ->
    NavigationBarItem(
     selected = tab == i,
@@ -332,7 +348,7 @@ fun formatAxis(value:Long):String=when{value>=1_000_000_000L->"%.1f GB/s".format
 
 @Composable fun StatusRows(o:MobileOverview){Card(colors=CardDefaults.cardColors(containerColor=Panel),modifier=Modifier.fillMaxWidth()){Column{StatusLine(Icons.Default.Language,"HTTP / Web",if(o.webTotal>0)o.webOk.toString()+"/"+o.webTotal else "--",if(o.webOk==o.webTotal&&o.webTotal>0)Green else Orange,o.latency.toString()+" ms");StatusLine(Icons.Default.Lock,"SSL",o.sslDays?.let{"Válido"}?:"--",Green,o.sslDays?.let{it.toString()+" días"}?:"--");StatusLine(Icons.Default.Storage,"Base de datos","Monitoreada",Blue,"");StatusLine(Icons.Default.Dns,"PM2 (Panel)","Monitoreado",Blue,"");StatusLine(Icons.Default.Public,"Nginx","Monitoreado",Blue,"")}}}
 @Composable fun StatusLine(icon:androidx.compose.ui.graphics.vector.ImageVector,name:String,state:String,color:Color,detail:String){Row(Modifier.fillMaxWidth().padding(horizontal=14.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,name,tint=color,modifier=Modifier.size(20.dp));Spacer(Modifier.width(10.dp));Text(name,Modifier.weight(1f));Surface(shape=RoundedCornerShape(10.dp),color=color.copy(alpha=.15f)){Text(state,Modifier.padding(horizontal=9.dp,vertical=3.dp),color=color,fontSize=11.sp)};Spacer(Modifier.width(12.dp));Text(detail,color=Muted,fontSize=10.sp)}}
-@Composable fun ServicesTab(services:List<ServiceState>,system:List<SystemServiceState>,onRefresh:()->Unit){LazyColumn(Modifier.fillMaxSize().padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){items(system){CompactSystemService(it,onRefresh)};items(services){CompactPm2Service(it,onRefresh)};item{Button(onClick=onRefresh,modifier=Modifier.fillMaxWidth().height(54.dp),shape=RoundedCornerShape(12.dp)){Icon(Icons.Default.Refresh,"Actualizar");Spacer(Modifier.width(8.dp));Text("Actualizar servicios")}}}}
+@Composable fun ServicesTab(services:List<ServiceState>,system:List<SystemServiceState>,onRefresh:()->Unit){LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),contentPadding=PaddingValues(top=14.dp,bottom=WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()+20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){items(system){CompactSystemService(it,onRefresh)};items(services){CompactPm2Service(it,onRefresh)};item{Button(onClick=onRefresh,modifier=Modifier.fillMaxWidth().height(54.dp),shape=RoundedCornerShape(12.dp)){Icon(Icons.Default.Refresh,"Actualizar");Spacer(Modifier.width(8.dp));Text("Actualizar servicios")}}}}
 @Composable fun CompactSystemService(s:SystemServiceState,onDone:()->Unit){val context=LocalContext.current;var ask by remember{mutableStateOf(false)};val color=serviceColor(s.label);Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF07263E)),modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(color.copy(alpha=.70f)))){Row(Modifier.padding(10.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(42.dp).background(color.copy(alpha=.34f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Icon(serviceIcon(s.label),s.label,tint=color)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(s.label,fontWeight=FontWeight.Bold);Text(s.name,color=Muted,fontSize=10.sp)};Surface(shape=RoundedCornerShape(10.dp),color=(if(s.active)Green else Red).copy(alpha=.2f)){Text(if(s.active)"Online" else s.state,Modifier.padding(horizontal=9.dp,vertical=4.dp),color=if(s.active)Green else Red,fontSize=10.sp,fontWeight=FontWeight.Bold)};Spacer(Modifier.width(6.dp));if(s.controllable)IconButton(onClick={ask=true},modifier=Modifier.size(36.dp)){Icon(Icons.Default.Refresh,"Reiniciar",tint=Cyan)}else Icon(Icons.Default.Lock,"Protegido",tint=Orange,modifier=Modifier.size(20.dp))}};if(ask)AlertDialog(onDismissRequest={ask=false},title={Text("Reiniciar "+s.label)},text={Text("¿Confirmás reiniciar este servicio?")},confirmButton={TextButton(onClick={ask=false;MobileApi.systemServiceAction(s.name,"restart"){ok,_->if(ok)(context as? Activity)?.runOnUiThread{onDone()}}}){Text("CONFIRMAR")}},dismissButton={TextButton(onClick={ask=false}){Text("CANCELAR")}})}
 @Composable fun CompactPm2Service(s:ServiceState,onDone:()->Unit){val context=LocalContext.current;var ask by remember{mutableStateOf(false)};val online=s.status=="online";Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF07263E)),modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(Purple.copy(alpha=.70f)))){Row(Modifier.padding(10.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(42.dp).background(Purple.copy(alpha=.34f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Icon(Icons.Default.Memory,s.name,tint=Purple)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(s.name,fontWeight=FontWeight.Bold);Text("PM2 · CPU "+s.cpu+"% · "+formatBytes(s.memory),color=Muted,fontSize=10.sp)};Surface(shape=RoundedCornerShape(10.dp),color=(if(online)Green else Red).copy(alpha=.2f)){Text(if(online)"Online" else s.status,Modifier.padding(horizontal=9.dp,vertical=4.dp),color=if(online)Green else Red,fontSize=10.sp,fontWeight=FontWeight.Bold)};IconButton(onClick={ask=true},modifier=Modifier.size(36.dp)){Icon(Icons.Default.Refresh,"Reiniciar",tint=Cyan)}}};if(ask)AlertDialog(onDismissRequest={ask=false},title={Text("Reiniciar "+s.name)},text={Text("¿Confirmás reiniciar este proceso PM2?")},confirmButton={TextButton(onClick={ask=false;MobileApi.serviceAction(s.name,"restart"){ok,_->if(ok)(context as? Activity)?.runOnUiThread{onDone()}}}){Text("CONFIRMAR")}},dismissButton={TextButton(onClick={ask=false}){Text("CANCELAR")}})}
 fun serviceColor(name:String)=when{name.contains("nginx",true)->Green;name.contains("mysql",true)->Blue;name.contains("fail",true)->Color(0xFFFFD54F);name.contains("cloud",true)->Orange;name.contains("cert",true)->Cyan;else->Purple}
