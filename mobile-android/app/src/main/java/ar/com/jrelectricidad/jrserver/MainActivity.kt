@@ -12,6 +12,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
@@ -106,6 +107,14 @@ class MainActivity:FragmentActivity(){
  }
  if(!paired){PairScreen{paired=true};return}
  LaunchedEffect(paired){while(paired){refresh();delay(3000)}}
+ BackHandler(enabled=settings||maintenanceServer!=null||selected!=null||tab!=0){
+  when{
+   settings->{settings=false}
+   maintenanceServer!=null->{maintenanceServer=null}
+   selected!=null->{selected=null}
+   tab!=0->{tab=0}
+  }
+ }
  if(settings){CommercialSettingsScreen(state.servers.firstOrNull(),overview,onBack={settings=false},onDisconnect={MobileApi.disconnect();paired=false;settings=false});return}
  if(maintenanceServer!=null){MaintenanceScreen(maintenanceServer!!,overview,onBack={maintenanceServer=null},onRefresh={refresh()});return}
  if(selected!=null){
