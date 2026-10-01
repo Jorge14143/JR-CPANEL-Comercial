@@ -29,12 +29,24 @@ def metrics():
     except:pass
     return {"cpuPercent":cpu(),"memoryPercent":round(100*(1-mem["MemAvailable"]/mem["MemTotal"])),"diskPercent":round(100*(1-free/max(1,total))),"temperature":temp,"uptime":int(float(open("/proc/uptime").read().split()[0]))}
 
+def service_is_relevant(unit,name,desc):
+    # Discovery stays dynamic: this is a generic noise filter, not a catalog
+    # of products such as Apache/Nginx/MySQL. New application services can
+    # appear without updating the agent.
+    n=name.lower();d=desc.lower()
+    noise_prefixes=("systemd-","getty","serial-getty","dbus","user@","polkit","rsyslog","journald","udev","logind","console-","keyboard-setup","kmod","modprobe","plymouth","procps","hwclock","ifupdown-")
+    if n.startswith(noise_prefixes):return False
+    noise_words=("login service","device event","journal service","message bus","authorization manager","virtual console","kernel module","userspace out-of-memory")
+    if any(x in d for x in noise_words):return False
+    # Keep enabled/persistent units and application/daemon-like services.
+    enabled=sh("systemctl","is-enabled",unit)
+    if enabled in ("enabled","enabled-runtime","static","indirect","generated"):return True
+    app_words=("server","daemon","agent","database","web","proxy","container","docker","podman","ssh","vpn","dns","backup","monitor","apache","nginx","redis","postgres","mysql","maria","php","node","cloud","fail2ban","firewall","samba","ftp")
+    return any(x in n or x in d for x in app_words)
+
 def services():
-    # Discover running systemd services dynamically. Android must render what
-    # this host actually reports instead of relying on a hard-coded catalog.
     raw=sh("systemctl","list-units","--type=service","--state=running","--no-legend","--no-pager","--plain")
-    out=[]
-    seen=set()
+    out=[];seen=set()
     for line in raw.splitlines():
         parts=line.split(None,4)
         if not parts:continue
@@ -44,6 +56,7 @@ def services():
         if name in seen:continue
         seen.add(name)
         desc=sh("systemctl","show",unit,"-p","Description","--value") or name
+        if not service_is_relevant(unit,name,desc):continue
         enabled=sh("systemctl","is-enabled",unit) or "unknown"
         out.append({"name":name,"label":desc,"unit":unit,"state":"active","active":True,"enabled":enabled})
     return sorted(out,key=lambda x:x["label"].lower())
