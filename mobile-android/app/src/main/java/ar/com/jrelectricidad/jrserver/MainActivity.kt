@@ -467,15 +467,17 @@ fun humanTime(raw:String):String=try{val instant=Instant.parse(raw);val mins=(Sy
 @Composable
 fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:()->Unit,onDisconnect:()->Unit){
  var section by remember{mutableIntStateOf(0)}
- var updates by remember{mutableStateOf(true)}
- var backups by remember{mutableStateOf(true)}
- var email by remember{mutableStateOf(true)}
- var whatsapp by remember{mutableStateOf(true)}
- var critical by remember{mutableStateOf(true)}
- var warnings by remember{mutableStateOf(true)}
- var biometric by remember{mutableStateOf(true)}
- var destructiveAuth by remember{mutableStateOf(true)}
- var darkMode by remember{mutableStateOf(true)}
+ var updates by remember{mutableStateOf(MobileApi.settingBool("updates",true))}
+ var backups by remember{mutableStateOf(MobileApi.settingBool("backups",true))}
+ var email by remember{mutableStateOf(MobileApi.settingBool("email",true))}
+ var whatsapp by remember{mutableStateOf(MobileApi.settingBool("whatsapp",true))}
+ var critical by remember{mutableStateOf(MobileApi.settingBool("critical",true))}
+ var warnings by remember{mutableStateOf(MobileApi.settingBool("warnings",true))}
+ var biometric by remember{mutableStateOf(MobileApi.settingBool("biometric",true))}
+ var destructiveAuth by remember{mutableStateOf(MobileApi.settingBool("destructive_auth",true))}
+ var darkMode by remember{mutableStateOf(MobileApi.settingBool("dark_mode",true))}
+ var selectedColor by remember{mutableIntStateOf(MobileApi.settingInt("theme_color",0))}
+ var saved by remember{mutableStateOf(false)}
  val tabs=listOf("General","Red","Notificaciones","Seguridad","Apariencia")
  LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
   item{Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Volver")};Column(Modifier.weight(1f)){Text("Configuración",fontSize=24.sp,fontWeight=FontWeight.Bold);Text(server?.host?:MobileApi.panelUrl(),color=Muted,fontSize=11.sp)}}}
@@ -505,10 +507,11 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
    else->{
     item{SettingsToggle(Icons.Default.DarkMode,"Modo oscuro","Interfaz oscura JR Server Mobile",Purple,darkMode){darkMode=it}}
     item{SettingsInfo(Icons.Default.Palette,"Tema","Neón JR Server",Cyan)}
-    item{var selectedColor by remember{mutableIntStateOf(0)};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){listOf(Cyan,Green,Orange,Purple,Red).forEachIndexed{i,color->Box(Modifier.size(if(selectedColor==i)48.dp else 42.dp).background(color.copy(alpha=if(selectedColor==i).62f else .34f),CircleShape).border(if(selectedColor==i)4.dp else 2.dp,color,CircleShape).clickable{selectedColor=i},contentAlignment=Alignment.Center){if(selectedColor==i)Icon(Icons.Default.Check,"Seleccionado",tint=Color.White,modifier=Modifier.size(22.dp))}}}}
+    item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){listOf(Cyan,Green,Orange,Purple,Red).forEachIndexed{i,color->Box(Modifier.size(if(selectedColor==i)48.dp else 42.dp).background(color.copy(alpha=if(selectedColor==i).62f else .34f),CircleShape).border(if(selectedColor==i)4.dp else 2.dp,color,CircleShape).clickable{selectedColor=i},contentAlignment=Alignment.Center){if(selectedColor==i)Icon(Icons.Default.Check,"Seleccionado",tint=Color.White,modifier=Modifier.size(22.dp))}}}}
    }
   }
-  item{Button(onClick={},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Save,"Guardar");Spacer(Modifier.width(8.dp));Text("Guardar cambios")}}
+  item{Button(onClick={MobileApi.saveSettings(mapOf("updates" to updates,"backups" to backups,"email" to email,"whatsapp" to whatsapp,"critical" to critical,"warnings" to warnings,"biometric" to biometric,"destructive_auth" to destructiveAuth,"dark_mode" to darkMode),selectedColor);saved=true},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Save,"Guardar");Spacer(Modifier.width(8.dp));Text(if(saved)"Cambios guardados" else "Guardar cambios")}}
+  if(saved)item{Text("Configuración guardada en este dispositivo",color=Green,fontSize=11.sp)}
   if(section==3)item{OutlinedButton(onClick=onDisconnect,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.outlinedButtonColors(contentColor=Red)){Text("Desvincular dispositivo")}}
  }
 }
@@ -524,7 +527,7 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
 
 object MobileApi{
  private const val DEFAULT_URL="https://jrserver.jrelectricidad.com.ar";private val client=OkHttpClient();private lateinit var context:Context
- fun init(c:Context){context=c.applicationContext};fun appContext()=context;private fun prefs()=context.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE);fun panelUrl()=(prefs().getString("panel_url",DEFAULT_URL)?:DEFAULT_URL).trimEnd('/');private fun normalizeUrl(v:String):String{var x=v.trim().trimEnd('/');if(!x.startsWith("https://")&&!x.startsWith("http://"))x="https://"+x;require(x.startsWith("https://")){"JR Server Mobile requiere HTTPS"};return x};private fun token()=prefs().getString("token","")?:"";fun hasToken()=token().isNotBlank();private fun saveToken(v:String){prefs().edit().putString("token",v).apply()}
+ fun init(c:Context){context=c.applicationContext};fun appContext()=context;private fun prefs()=context.getSharedPreferences("jr_mobile",Context.MODE_PRIVATE);fun settingBool(key:String,default:Boolean)=prefs().getBoolean("setting_"+key,default);fun settingInt(key:String,default:Int)=prefs().getInt("setting_"+key,default);fun saveSettings(values:Map<String,Boolean>,themeColor:Int){val e=prefs().edit();values.forEach{(k,v)->e.putBoolean("setting_"+k,v)};e.putInt("setting_theme_color",themeColor).apply()};fun panelUrl()=(prefs().getString("panel_url",DEFAULT_URL)?:DEFAULT_URL).trimEnd('/');private fun normalizeUrl(v:String):String{var x=v.trim().trimEnd('/');if(!x.startsWith("https://")&&!x.startsWith("http://"))x="https://"+x;require(x.startsWith("https://")){"JR Server Mobile requiere HTTPS"};return x};private fun token()=prefs().getString("token","")?:"";fun hasToken()=token().isNotBlank();private fun saveToken(v:String){prefs().edit().putString("token",v).apply()}
  fun disconnect(){prefs().edit().remove("token").remove("last_level").remove("active_incidents").apply();WorkManager.getInstance(context).cancelUniqueWork("jr-monitor")}
  private fun request(path:String,method:String="GET",body:String?=null,done:(Int,String)->Unit){val b=Request.Builder().url(panelUrl()+path).header("Authorization","Bearer "+token());if(method=="POST")b.post((body?:"{}").toRequestBody("application/json".toMediaType()));client.newCall(b.build()).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(0,"");override fun onResponse(c:Call,r:Response){r.use{done(it.code,it.body?.string()?:"")}}})}
  fun pair(panel:String,user:String,pass:String,code:String,done:(Boolean,String)->Unit){val json=JSONObject().put("username",user).put("password",pass).put("code",code).put("deviceName",Build.MANUFACTURER+" "+Build.MODEL).toString();val base=try{normalizeUrl(panel)}catch(e:Exception){done(false,e.message?:"URL inválida");return};val req=Request.Builder().url(base+"/api/mobile/v1/pair").post(json.toRequestBody("application/json".toMediaType())).build();client.newCall(req).enqueue(object:Callback{override fun onFailure(c:Call,e:IOException)=done(false,"No se pudo conectar");override fun onResponse(c:Call,r:Response){r.use{try{val j=JSONObject(it.body?.string()?:"{}");if(it.isSuccessful&&j.optString("token").isNotBlank()){prefs().edit().putString("panel_url",base).apply();saveToken(j.getString("token"));done(true,"")}else done(false,"Credenciales o 2FA incorrectos")}catch(e:Exception){done(false,"Respuesta no válida")}}}})}
