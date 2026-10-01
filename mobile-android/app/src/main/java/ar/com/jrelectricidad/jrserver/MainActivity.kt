@@ -84,7 +84,26 @@ class MainActivity:FragmentActivity(){
  var state by remember{mutableStateOf(MonitorState())};var overview by remember{mutableStateOf(MobileOverview())};var incidents by remember{mutableStateOf(emptyList<IncidentState>())};var services by remember{mutableStateOf(emptyList<ServiceState>())};var systemServices by remember{mutableStateOf(emptyList<SystemServiceState>())}
  var tab by remember{mutableIntStateOf(0)};var paired by remember{mutableStateOf(MobileApi.hasToken())};var selected by remember{mutableStateOf<ServerState?>(null)};var refreshing by remember{mutableStateOf(false)};var settings by remember{mutableStateOf(false)};var maintenanceServer by remember{mutableStateOf<ServerState?>(null)}
  var rxHistory by remember{mutableStateOf(listOf<Long>())};var txHistory by remember{mutableStateOf(listOf<Long>())}
- fun refresh(){refreshing=true;MobileApi.load{v->(context as? Activity)?.runOnUiThread{state=v;refreshing=false;selected=selected?.let{old->v.servers.find{it.id==old.id}?:old}};MobileApi.incidents{v->(context as? Activity)?.runOnUiThread{incidents=v}};MobileApi.services{v->(context as? Activity)?.runOnUiThread{services=v}};MobileApi.systemServices{v->(context as? Activity)?.runOnUiThread{systemServices=v}};MobileApi.overview{v->(context as? Activity)?.runOnUiThread{overview=v;rxHistory=(rxHistory+v.rx).takeLast(60);txHistory=(txHistory+v.tx).takeLast(60)}}}
+ fun refresh(){
+  refreshing=true
+  MobileApi.load { value ->
+   (context as? Activity)?.runOnUiThread {
+    state=value
+    refreshing=false
+    selected=selected?.let { old -> value.servers.find { it.id==old.id } ?: old }
+   }
+  }
+  MobileApi.incidents { value -> (context as? Activity)?.runOnUiThread { incidents=value } }
+  MobileApi.services { value -> (context as? Activity)?.runOnUiThread { services=value } }
+  MobileApi.systemServices { value -> (context as? Activity)?.runOnUiThread { systemServices=value } }
+  MobileApi.overview { value ->
+   (context as? Activity)?.runOnUiThread {
+    overview=value
+    rxHistory=(rxHistory+value.rx).takeLast(60)
+    txHistory=(txHistory+value.tx).takeLast(60)
+   }
+  }
+ }
  if(!paired){PairScreen{paired=true};return}
  LaunchedEffect(paired){while(paired){refresh();delay(3000)}}
  if(settings){CommercialSettingsScreen(state.servers.firstOrNull(),onBack={settings=false},onDisconnect={MobileApi.disconnect();paired=false;settings=false});return}
