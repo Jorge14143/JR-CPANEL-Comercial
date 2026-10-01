@@ -44,12 +44,12 @@ app.get("/api/mobile/v1/status",mobileAuth,async(req,res)=>{try{res.set("Cache-C
 app.get("/api/mobile/v1/incidents",mobileAuth,(req,res)=>res.json({active:Object.values(mobileAlertState().active||{}),history:mobileAlertHistory(Number(req.query.limit)||100)}));
 app.get("/api/mobile/v1/overview",mobileAuth,async(req,res)=>{
  try{
-  const [backupR,sslR,controlR]=await Promise.allSettled([backupAction("list"),sslAction("list"),systemControl("status")]);
+  const [backupR,sslR,controlR]=await Promise.allSettled([backupAction("list"),sslAction("certificates"),systemControl("status")]);
   const backupLines=backupR.status==="fulfilled"?String(backupR.value.stdout||"").trim().split("\n").filter(Boolean):[];
   const lastBackup=backupLines.length?(()=>{const [mtime,size,...parts]=backupLines[0].split("\t");return{name:path.basename(parts.join("\t")),size:Number(size)||0,time:new Date((Number(mtime)||0)*1000).toISOString()}})():null;
   let certificates=[];if(sslR.status==="fulfilled")try{certificates=parseCertbot(sslR.value.stdout||"")}catch{}
   const maintenance=controlR.status==="fulfilled"&&/maintenance=on/.test(String(controlR.value.stdout||""));
-  const health=await Promise.all(["https://jrelectricidad.com.ar","https://pruebas.jrelectricidad.com.ar","https://jrserver.jrelectricidad.com.ar"].map(async url=>{const t=Date.now();try{const rr=await fetch(url,{method:"HEAD",redirect:"manual",signal:AbortSignal.timeout(6000)});return{url,status:rr.status,ok:rr.status>=200&&rr.status<500,latencyMs:Date.now()-t}}catch{return{url,status:0,ok:false,latencyMs:Date.now()-t}}}));
+  const health=await Promise.all(["https://jrelectricidad.com.ar","https://pruebas.jrelectricidad.com.ar","https://jrserver.jrelectricidad.com.ar"].map(async url=>{const t=process.hrtime.bigint();try{const rr=await fetch(url,{method:"HEAD",redirect:"manual",signal:AbortSignal.timeout(6000)});return{url,status:rr.status,ok:rr.status>=200&&rr.status<500,latencyMs:Math.max(1,Math.round(Number(process.hrtime.bigint()-t)/1e6))}}catch{return{url,status:0,ok:false,latencyMs:null}}}));
   const connectionCount=Number(await cmd("sh",["-c","ss -Htan state established 2>/dev/null | wc -l"]))||0;
   res.set("Cache-Control","no-store").json({network:{interface:liveNetwork.interface,rxPerSec:liveNetwork.rxPerSec||0,txPerSec:liveNetwork.txPerSec||0,rxBytes:liveNetwork.rxBytes||0,txBytes:liveNetwork.txBytes||0,requestsPerSec:liveNetwork.nginxRequestsPerSec||0,connections:connectionCount},backup:{last:lastBackup,ok:!!lastBackup},certificates,health,maintenance,updatedAt:new Date().toISOString()});
  }catch(e){res.status(500).json({error:"mobile_overview_unavailable"})}
