@@ -482,16 +482,10 @@ fun humanTime(raw:String):String=try{val instant=Instant.parse(raw);val mins=(Sy
 fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:()->Unit,onDisconnect:()->Unit){
  val context=LocalContext.current
  var section by remember{mutableIntStateOf(0)}
- var updates by remember{mutableStateOf(MobileApi.settingBool("updates",true))}
- var backups by remember{mutableStateOf(MobileApi.settingBool("backups",true))}
- var email by remember{mutableStateOf(MobileApi.settingBool("email",true))}
- var whatsapp by remember{mutableStateOf(MobileApi.settingBool("whatsapp",true))}
  var critical by remember{mutableStateOf(MobileApi.settingBool("critical",true))}
  var warnings by remember{mutableStateOf(MobileApi.settingBool("warnings",true))}
  var biometric by remember{mutableStateOf(MobileApi.settingBool("biometric",true))}
  var destructiveAuth by remember{mutableStateOf(MobileApi.settingBool("destructive_auth",true))}
- var darkMode by remember{mutableStateOf(MobileApi.settingBool("dark_mode",true))}
- var selectedColor by remember{mutableIntStateOf(MobileApi.settingInt("theme_color",0))}
  var saved by remember{mutableStateOf(false)}
  var updateMsg by remember{mutableStateOf<String?>(null)}
  var updateBusy by remember{mutableStateOf(false)}
@@ -502,8 +496,8 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
   when(section){
    0->{
     item{SettingsInfo(Icons.Default.Dns,"Información del servidor",server?.name?:"JR Server",Blue)}
-    item{SettingsToggle(Icons.Default.SystemUpdate,"Actualizaciones","Actualizar automáticamente",Purple,updates){updates=it}}
-    item{SettingsToggle(Icons.Default.Backup,"Backups automáticos","Copia de seguridad programada",Green,backups){backups=it}}
+    item{SettingsInfo(Icons.Default.SystemUpdate,"Actualizaciones","Búsqueda manual desde la app",Purple)}
+    item{SettingsInfo(Icons.Default.Backup,"Backups","Ejecución manual desde Acciones",Green)}
    }
    1->{
     item{SettingsInfo(Icons.Default.Language,"Servidor / host",server?.host?:MobileApi.panelUrl(),Cyan)}
@@ -511,8 +505,7 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
     item{SettingsInfo(Icons.Default.Speed,"Latencia",(server?.latency ?: overview.latency.takeIf{it>0})?.let{"$it ms"}?:"Sin datos",Blue)}
    }
    2->{
-    item{SettingsToggle(Icons.Default.Notifications,"Notificaciones por email","Alertas importantes",Orange,email){email=it}}
-    item{SettingsToggle(Icons.Default.Chat,"Notificaciones WhatsApp","Alertas operativas",Green,whatsapp){whatsapp=it}}
+    item{SettingsInfo(Icons.Default.Notifications,"Canales externos","Email / WhatsApp se administran desde el panel web",Orange)}
     item{SettingsToggle(Icons.Default.Error,"Alertas críticas","Incidentes de prioridad alta",Red,critical){critical=it}}
     item{SettingsToggle(Icons.Default.Warning,"Advertencias","Avisos preventivos",Orange,warnings){warnings=it}}
    }
@@ -522,14 +515,13 @@ fun CommercialSettingsScreen(server:ServerState?,overview:MobileOverview,onBack:
     item{SettingsInfo(Icons.Default.Lock,"Conexión segura","HTTPS obligatorio",Green)}
    }
    else->{
-    item{SettingsToggle(Icons.Default.DarkMode,"Modo oscuro","Interfaz oscura JR Server Mobile",Purple,darkMode){darkMode=it}}
+    item{SettingsInfo(Icons.Default.DarkMode,"Modo de interfaz","Oscuro JR Server",Purple)}
     item{SettingsInfo(Icons.Default.Palette,"Tema","Neón JR Server",Cyan)}
-    item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){listOf(Cyan,Green,Orange,Purple,Red).forEachIndexed{i,color->Box(Modifier.size(if(selectedColor==i)48.dp else 42.dp).background(color.copy(alpha=if(selectedColor==i).62f else .34f),CircleShape).border(if(selectedColor==i)4.dp else 2.dp,color,CircleShape).clickable{selectedColor=i},contentAlignment=Alignment.Center){if(selectedColor==i)Icon(Icons.Default.Check,"Seleccionado",tint=Color.White,modifier=Modifier.size(22.dp))}}}}
    }
   }
   if(section==0)item{OutlinedButton(onClick={updateBusy=true;updateMsg="Buscando actualización…";MobileApi.checkForUpdate{available,version,url,message->(context as? Activity)?.runOnUiThread{updateBusy=false;if(available&&url!=null){updateMsg="Nueva versión "+version+". Descargando…";MobileUpdater.downloadAndInstall(context,url){msg->(context as? Activity)?.runOnUiThread{updateMsg=msg}}}else updateMsg=message}}},enabled=!updateBusy,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.SystemUpdate,"Actualizar");Spacer(Modifier.width(8.dp));Text(if(updateBusy)"Buscando…" else "Buscar actualización")}}
   if(section==0&&updateMsg!=null)item{Text(updateMsg!!,color=if(updateMsg!!.contains("actualizada",true))Green else Muted,fontSize=11.sp)}
-  item{Button(onClick={MobileApi.saveSettings(mapOf("updates" to updates,"backups" to backups,"email" to email,"whatsapp" to whatsapp,"critical" to critical,"warnings" to warnings,"biometric" to biometric,"destructive_auth" to destructiveAuth,"dark_mode" to darkMode),selectedColor);saved=true},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Save,"Guardar");Spacer(Modifier.width(8.dp));Text(if(saved)"Cambios guardados" else "Guardar cambios")}}
+  item{Button(onClick={MobileApi.saveSettings(mapOf("critical" to critical,"warnings" to warnings,"biometric" to biometric,"destructive_auth" to destructiveAuth),0);saved=true},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Save,"Guardar");Spacer(Modifier.width(8.dp));Text(if(saved)"Cambios guardados" else "Guardar cambios")}}
   if(saved)item{Text("Configuración guardada en este dispositivo",color=Green,fontSize=11.sp)}
   if(section==3)item{OutlinedButton(onClick=onDisconnect,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.outlinedButtonColors(contentColor=Red)){Text("Desvincular dispositivo")}}
  }
